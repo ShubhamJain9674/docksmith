@@ -1,0 +1,27 @@
+name: Build Docksmith
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y cmake g++ make
+
+      - name: Build (Debug)
+        run: |
+          make clean
+          make
+
+      - name: Build (Release)
+        run: |
+          make clean
+          make release
