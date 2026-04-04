@@ -1,0 +1,22 @@
+#include <iostream>
+#include <cassert>
+
+#include "CLI11.hpp"
+
+
+
+
+
+int main(int argc,char* argv[]){
+
+    CLI::App app{"Docksmith is a simplified Docker-like build and runtime system."};
+    
+    argv = app.ensure_utf8(argv);
+
+
+    CLI11_PARSE(app,argc,argv);
+
+
+    return 0;
+
+}
