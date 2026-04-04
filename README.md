@@ -89,7 +89,7 @@ Docksmith runs containers by:
 ### 1. Clone the repository
 
 ```bash id="clone2"
-git clone <repo-url>
+git clone https://github.com/ShubhamJain9674/docksmith
 cd docksmith
 ```
 
