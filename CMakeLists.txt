@@ -19,14 +19,16 @@ if(OpenMP_CXX_FOUND)
     message(STATUS "OpenMP found")
 endif()
 
-# Include directories
-include_directories(include)
+
 
 # Source files
 file(GLOB_RECURSE SOURCES "src/*.cpp")
 
 # Executable
 add_executable(docksmith ${SOURCES})
+
+# Include directories
+target_include_directories(docksmith PRIVATE include src)
 
 # Link OpenMP
 if(OpenMP_CXX_FOUND)
