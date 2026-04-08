@@ -80,4 +80,3 @@ class Image{
 Image loadManifest(const std::string& file);
 void saveManifest(Image& i);
 
-

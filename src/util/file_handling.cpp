@@ -111,3 +111,8 @@ std::vector<std::string> getAllFilesUnderDir(const std::string& dir,
 
 } 
 
+void deleteJsonFile(const std::string& file){
+
+    fs::path path = getExecutableDir() / "images" / (file + ".json");
+    fs::remove(path);
+}

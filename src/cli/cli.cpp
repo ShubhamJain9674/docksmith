@@ -62,16 +62,23 @@ void rmiCmd(const std::string& rmi_image){
     std::cout << "Removing: " << rmi_image << "\n";
 
     //implement rmi command:-
-
-
+    //not completed
+ 
     // - load the image json
-    Image i = loadManifest(rmi_image);
+    Image i = loadManifest(rmi_image+".json"); 
     
 
 
     // get all the layer info
     // for each layer check if its shared by other layer
     // if not shared delete the layer
+
+
+
     //delete the json file
+
+    deleteJsonFile(i.getName());
+
+
 
 }

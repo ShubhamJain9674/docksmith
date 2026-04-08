@@ -28,3 +28,5 @@ std::vector<std::string> getAllFilesUnderDir(const std::string& dir,
     bool strip_extension = false    
 );
 
+
+void deleteJsonFile(const std::string& file);
