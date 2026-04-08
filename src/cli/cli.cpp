@@ -43,12 +43,14 @@ void imagesCmd() {
     for (const auto& file : images) {
         
         Image i = loadManifest(file);
+        auto id = i.getDigest();
+        if(id.size() > 12) id = id.substr(0,12);
 
         std::cout << i.getName() << "\t"
                 << i.getTag() << "\t"
-                << i.getDigest() << "\t"
+                << id << "\t"
                 << i.getCreated() << "\n";
-        
+
     } 
 
 
@@ -63,6 +65,7 @@ void rmiCmd(const std::string& rmi_image){
 
 
     // - load the image json
+    Image i = loadManifest(rmi_image);
     
 
 

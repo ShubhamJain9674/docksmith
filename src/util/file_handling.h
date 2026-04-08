@@ -4,6 +4,7 @@
 #include <vector>
 #include <ranges>
 #include <filesystem>
+#include <fstream>
 
 #ifdef _WIN32
     #include <windows.h>
@@ -26,3 +27,4 @@ std::vector<std::string> getAllFilesUnderDir(const std::string& dir,
     const std::string& extension = "",
     bool strip_extension = false    
 );
+

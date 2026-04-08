@@ -63,7 +63,7 @@ json Image::toJson(){
 void saveManifest(Image& i){
 
     json j = i.toJson();
-    const fs::path path = getExecutableDir() / "images" / (j.at("digest").get<std::string>() + ".json");
+    const fs::path path = getExecutableDir() / "images" / (j.at("name").get<std::string>() + ".json");
 
 
     std::ofstream f(path);

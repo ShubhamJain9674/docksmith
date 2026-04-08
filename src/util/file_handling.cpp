@@ -36,6 +36,24 @@ fs::path getExecutableDir() {
 }
 
 
+
+bool checkLayersCache(){
+    const fs::path cache = getExecutableDir() / "cache" / "layers.json";
+    return fs::exists(cache);
+}
+
+void createLayersCache(){
+    const fs::path cache = getExecutableDir() / "cache" / "layers.json";
+    std::ofstream f(cache);
+
+    if(!f.is_open()){
+        std::cerr << "failed to create image cache file\n";
+    }
+
+    f.close();
+}
+
+
 void initDocksmithDir(){
 
     fs::path exe_dir = getExecutableDir();
@@ -56,6 +74,13 @@ void initDocksmithDir(){
     if(!fs::exists(cache)){
         std::cout << "creating cache dir!\n"; 
         fs::create_directory(cache);
+        createLayersCache();
+    }
+    else{
+        if(!checkLayersCache()){
+            createLayersCache();
+        }
+
     }
 
 }
