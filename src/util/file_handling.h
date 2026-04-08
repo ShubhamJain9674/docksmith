@@ -1,6 +1,8 @@
 #pragma once
 
 #include <iostream>
+#include <vector>
+#include <ranges>
 #include <filesystem>
 
 #ifdef _WIN32
@@ -19,3 +21,8 @@ std::filesystem::path getExePath();
 std::filesystem::path getExecutableDir();
 
 void initDocksmithDir();
+
+std::vector<std::string> getAllFilesUnderDir(const std::string& dir,
+    const std::string& extension = "",
+    bool strip_extension = false    
+);

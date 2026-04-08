@@ -1,6 +1,6 @@
 #include "cli.h"
 
-
+using json = nlohmann::json;
 
 void buildCmd(const std::string& build_tag,const std::string& build_context,bool no_cache){
     std::cout << "[BUILD]\n";
@@ -35,10 +35,45 @@ void runCmd(const std::string& run_image,
 
 }
 
-void imagesCmd(){
-    std::cout << "images_cmd called" << std::endl;
+void imagesCmd() {
+    auto images = getAllFilesUnderDir("images", ".json", false);
 
-    //implement images command:-
+    std::cout << "NAME\tTAG\tIMAGE ID\tCREATED\n";
+
+    for (const auto& file : images) {
+        std::ifstream f(getExecutableDir() / "images" / file);
+
+        if (!f.is_open()) {
+            std::cerr << "Failed to open file: " << file << "\n";
+            continue;
+        }
+
+        if (f.peek() == std::ifstream::traits_type::eof()) {
+            std::cerr << "Skipping empty file: " << file << "\n";
+            continue;
+        }
+
+        try {
+            json j;
+            f >> j;
+
+            std::string name = j.value("name", "N/A");
+            std::string tag = j.value("tag", "latest");
+            std::string id = j.value("id", "");
+
+            if (id.size() > 12) id = id.substr(0, 12);
+
+            std::string created = j.value("created", "N/A");
+
+            std::cout << name << "\t"
+                    << tag << "\t"
+                    << id << "\t"
+                    << created << "\n";
+
+        } catch (const std::exception& e) {
+            std::cerr << "Error parsing " << file << ": " << e.what() << "\n";
+        }
+    }
 }
 
 

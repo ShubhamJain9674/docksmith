@@ -1,4 +1,4 @@
-#include "setup.h"
+#include "file_handling.h"
 
 namespace fs = std::filesystem;
 
@@ -13,7 +13,7 @@ fs::path getExePath(){
         return fs::path(std::string(buffer, len));
     #elif __APPLE__
         std::cout <<"who uses apple!" << std::endl;
-        exit(1);
+        throw std::runtime_error("Unsupported platform");
     #elif __linux__
 
         char buffer[PATH_MAX];
@@ -26,6 +26,7 @@ fs::path getExePath(){
         return fs::path(buffer);
     #else
         #error Unsupported platform
+        throw std::runtime_error("Unsupported platform");
     #endif
 
 }
@@ -58,3 +59,30 @@ void initDocksmithDir(){
     }
 
 }
+
+std::vector<std::string> getAllFilesUnderDir(const std::string& dir,
+    const std::string& extension,
+    bool strip_extension    
+){
+
+    std::vector<std::string> file_list;
+    const fs::path exe_dir = getExecutableDir();
+    const fs::path p = exe_dir / fs::path(dir);
+
+
+    for (const auto& entry : fs::directory_iterator(p)) {
+        if (!entry.is_regular_file()) continue;
+
+        if (extension.empty() || entry.path().extension() == extension) {
+            // std::cout << entry.path().filename().string() << std::endl;
+            std::string required = (strip_extension) 
+                                    ? entry.path().stem().string() 
+                                    : entry.path().filename().string(); 
+            file_list.push_back(required);
+        }
+    }
+
+    return file_list;
+
+} 
+

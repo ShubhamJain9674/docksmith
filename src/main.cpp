@@ -3,12 +3,13 @@
 
 #include "CLI11.hpp"
 #include "cli/cli.h"
-#include "core/setup.h"
+#include "util/file_handling.h"
 
 
 
 int main(int argc, char* argv[]) {
 
+    //checks if images,layers,cache dirs exist or not.If not creates the directory.
     initDocksmithDir();
     
     CLI::App app{"Docksmith is a simplified Docker-like build and runtime system."};
