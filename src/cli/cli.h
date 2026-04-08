@@ -2,9 +2,10 @@
 #include <iostream>
 #include <vector>
 #include <fstream>
-#include "../util/file_handling.h"
-#include "../../include/json.hpp"
+#include <json.hpp>
 
+#include "util/file_handling.h"
+#include "core/Image.h"
 
 
 

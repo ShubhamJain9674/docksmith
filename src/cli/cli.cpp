@@ -41,39 +41,17 @@ void imagesCmd() {
     std::cout << "NAME\tTAG\tIMAGE ID\tCREATED\n";
 
     for (const auto& file : images) {
-        std::ifstream f(getExecutableDir() / "images" / file);
+        
+        Image i = loadManifest(file);
 
-        if (!f.is_open()) {
-            std::cerr << "Failed to open file: " << file << "\n";
-            continue;
-        }
+        std::cout << i.getName() << "\t"
+                << i.getTag() << "\t"
+                << i.getDigest() << "\t"
+                << i.getCreated() << "\n";
+        
+    } 
 
-        if (f.peek() == std::ifstream::traits_type::eof()) {
-            std::cerr << "Skipping empty file: " << file << "\n";
-            continue;
-        }
 
-        try {
-            json j;
-            f >> j;
-
-            std::string name = j.value("name", "N/A");
-            std::string tag = j.value("tag", "latest");
-            std::string id = j.value("id", "");
-
-            if (id.size() > 12) id = id.substr(0, 12);
-
-            std::string created = j.value("created", "N/A");
-
-            std::cout << name << "\t"
-                    << tag << "\t"
-                    << id << "\t"
-                    << created << "\n";
-
-        } catch (const std::exception& e) {
-            std::cerr << "Error parsing " << file << ": " << e.what() << "\n";
-        }
-    }
 }
 
 
@@ -82,5 +60,15 @@ void rmiCmd(const std::string& rmi_image){
     std::cout << "Removing: " << rmi_image << "\n";
 
     //implement rmi command:-
+
+
+    // - load the image json
+    
+
+
+    // get all the layer info
+    // for each layer check if its shared by other layer
+    // if not shared delete the layer
+    //delete the json file
 
 }

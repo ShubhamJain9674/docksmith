@@ -1,7 +1,7 @@
 #include <iostream>
 #include <cassert>
 
-#include "CLI11.hpp"
+#include <CLI11.hpp>
 #include "cli/cli.h"
 #include "util/file_handling.h"
 
