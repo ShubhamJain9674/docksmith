@@ -38,7 +38,7 @@ file(GLOB_RECURSE SOURCES "src/*.cpp")
 add_executable(docksmith ${SOURCES})
 
 # Include directories
-target_include_directories(docksmith PRIVATE include src)
+target_include_directories(docksmith PRIVATE include src/public)
 
 # Link OpenMP
 if(OpenMP_CXX_FOUND)

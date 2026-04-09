@@ -5,8 +5,8 @@
 #include <ranges>
 #include <filesystem>
 #include <fstream>
-#include "util/crypto.h"
-#include "core/Image.h"
+#include "crypto.h"
+
 
 #ifdef _WIN32
     #include <windows.h>
@@ -18,12 +18,9 @@
 #endif
     
 
-struct Layer;
-
 std::filesystem::path getExePath();
 std::filesystem::path getExecutableDir();
 
-void initDocksmithDir();
 
 std::vector<std::string> getAllFilesUnderDir(const std::string& dir,
     const std::string& extension = "",
@@ -33,8 +30,3 @@ std::vector<std::string> getAllFilesUnderDir(const std::string& dir,
 
 void deleteJsonFile(const std::string& file);
 
-void storeAlpineLayer(Layer l,std::string name);
-
-void createBaseLinuxLayer();
-
-bool isBaseImageAvailable();
