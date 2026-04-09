@@ -103,6 +103,8 @@ Make sure you have:
 * `make`
 * A C++ compiler (g++ / clang)
 
+
+
 ---
 
 ### 3. Build
@@ -139,6 +141,18 @@ make clean
 ---
 
 ## Usage
+
+### initial setup 
+
+- download linux alpine-linux-rootfs 
+
+```
+  wget https://dl-cdn.alpinelinux.org/alpine/v3.18/releases/x86_64/alpine-minirootfs-3.18.0-x86_64.tar.gz
+```
+- run ./docksmith once
+- copy alpineLinux.tar file to base_image folder.
+- run ./docksmith again
+
 
 ### Build an image
 

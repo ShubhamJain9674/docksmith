@@ -5,6 +5,8 @@
 #include "util/file_handling.h"
 
 
+
+
 struct Layer{
     std::string digest;  //hash of tar file compressed.
     size_t size;   //size of the tar file.
@@ -65,6 +67,12 @@ class Image{
         const std::string& getCreated() { return created; }
         nlohmann::json toJson();
 
+        void setName(std::string n) { name = n; }
+        void setTag(std::string t){ tag = t; }
+        void setDigest(std::string d){ digest = d; }
+        void setCreated(std::string c){ created = c; }
+        void setConfig(Config c){ conf = c; }
+        void addLayer(Layer l) { layers.push_back(l); }
 
     private:
         std::string name;

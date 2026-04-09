@@ -92,7 +92,9 @@ void initDocksmithDir(){
         fs::create_directory(base_image);
     }
     else{
-        createBaseLinuxLayer();
+        if(!isBaseImageAvailable()){
+            createBaseLinuxLayer();
+        }
     }
 
 
@@ -131,6 +133,28 @@ void deleteJsonFile(const std::string& file){
 }
 
 
+void storeAlpineLayer(Layer l,std::string name){
+
+    const auto exe_dir = getExecutableDir();
+    std::cout << name;
+    const auto source_alpine_path = exe_dir / "base_image" / name ;
+    const auto dest_path = exe_dir / "layers" / (l.digest + ".tar");
+
+    
+    fs::copy_file(source_alpine_path,dest_path);
+
+    try{
+        std::cout << "layer created and stored\n";
+    }catch(const fs::filesystem_error& e){
+        std::cout << "error : " << e.what() << std::endl;
+    }
+
+    // req storing in cache file.
+}
+
+
+
+
 void createBaseLinuxLayer(){
 
 
@@ -150,6 +174,41 @@ void createBaseLinuxLayer(){
     
     std::string digest = encryptSHA256((path / req_file)); 
     std::cout << "digest : " << digest <<std::endl;
+    std::uintmax_t size = fs::file_size((path / req_file));
 
+
+    Layer l = {
+        digest,
+        size,
+        "DocksmithBaseLayer"
+    };
+
+    storeAlpineLayer(l,req_file);
+
+    
+    
+    Image base;
+    
+    base.setName("AlpineLinux");
+    base.setTag("Latest");
+    base.setDigest(digest);
+    base.addLayer(l);
+
+    saveManifest(base);
+
+}
+
+bool isBaseImageAvailable(){
+    const auto exe_dir = getExecutableDir();
+    const auto path  = exe_dir / "images";
+    
+    auto files = getAllFilesUnderDir(path,".json");
+    for(auto i : files){
+        if(i == "AlpineLinux.json"){
+            return true;
+        }
+    }
+
+    return false;
 
 }
