@@ -19,6 +19,16 @@ if(OpenMP_CXX_FOUND)
     message(STATUS "OpenMP found")
 endif()
 
+# openSSL for SHA256 hashing (EVP API - modern OpenSSL 3.0+)
+find_package(OpenSSL REQUIRED)
+if(OPENSSL_FOUND)
+    message(STATUS "OpenSSL found: ${OPENSSL_VERSION}")
+else()
+    message(FATAL_ERROR "OpenSSL not found.Install it")
+endif()
+
+# Link OpenSSL
+
 
 
 # Source files
@@ -34,3 +44,5 @@ target_include_directories(docksmith PRIVATE include src)
 if(OpenMP_CXX_FOUND)
     target_link_libraries(docksmith OpenMP::OpenMP_CXX)
 endif()
+
+target_link_libraries(docksmith OpenSSL::Crypto)

@@ -60,6 +60,8 @@ void initDocksmithDir(){
     const fs::path images = exe_dir / fs::path("images");
     const fs::path layers = exe_dir / fs::path("layers");
     const fs::path cache = exe_dir / fs::path("cache");
+    const fs::path base_image = exe_dir / fs::path("base_image");
+
 
     if(!fs::exists(images)){
         std::cout << "creating images dir!\n";
@@ -82,6 +84,17 @@ void initDocksmithDir(){
         }
 
     }
+
+    if(!fs::exists(base_image)){
+        std::cout << "creating base_image dir!\n";
+        std::cout << "you need to add Alpine linux in .tar format here.\n";
+        std::cout << ".tar.gz format wont work on this implementation\n";
+        fs::create_directory(base_image);
+    }
+    else{
+        createBaseLinuxLayer();
+    }
+
 
 }
 
@@ -115,4 +128,28 @@ void deleteJsonFile(const std::string& file){
 
     fs::path path = getExecutableDir() / "images" / (file + ".json");
     fs::remove(path);
+}
+
+
+void createBaseLinuxLayer(){
+
+
+    auto exe_dir = getExecutableDir();
+    auto path  = exe_dir / "base_image";
+    std::string req_file;
+    
+    {
+        std::vector<std::string> files = getAllFilesUnderDir(path,".tar");
+        if(files.size() == 0){
+            std::cerr << "base linux file not found.Look into readme for more info\n";
+            return;
+        }
+        req_file = files[0];
+    }
+
+    
+    std::string digest = encryptSHA256((path / req_file)); 
+    std::cout << "digest : " << digest <<std::endl;
+
+
 }

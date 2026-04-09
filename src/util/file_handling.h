@@ -5,6 +5,7 @@
 #include <ranges>
 #include <filesystem>
 #include <fstream>
+#include "util/crypto.h"
 
 #ifdef _WIN32
     #include <windows.h>
@@ -30,3 +31,7 @@ std::vector<std::string> getAllFilesUnderDir(const std::string& dir,
 
 
 void deleteJsonFile(const std::string& file);
+
+
+
+void createBaseLinuxLayer();
