@@ -4,8 +4,8 @@
 #include <fstream>
 #include <json.hpp>
 
-#include "util/file_handling.h"
-#include "core/Image.h"
+#include "file_handling.h"
+#include "Image.h"
 
 
 

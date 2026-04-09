@@ -2,8 +2,8 @@
 #include <cassert>
 
 #include <CLI11.hpp>
-#include "cli/cli.h"
-#include "util/file_handling.h"
+#include "cli.h"
+#include "setup.h"
 
 
 
