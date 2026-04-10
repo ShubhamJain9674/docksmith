@@ -19,3 +19,5 @@ RUN chmod +x /app/start.sh
 
 # Default command (no layer created, must be JSON array)
 CMD ["python3", "/app/main.py"]
+
+RAKCWKM AKWKCVKMAA AWKMCKVMAW

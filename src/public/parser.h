@@ -7,4 +7,4 @@
 #include "json.hpp"
 
 
-bool parseDocksmithFile(std::filesystem::path& path);
+std::optional<std::vector<nlohmann::json>> parseDocksmithFile(const std::filesystem::path& path);

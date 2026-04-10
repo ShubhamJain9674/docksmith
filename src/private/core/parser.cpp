@@ -5,6 +5,19 @@ namespace fs = std::filesystem;
 
 using json = nlohmann::json;
 
+enum ParserStatus{
+    OK,
+    IGNORE,
+    ERROR
+};
+
+struct ParserResult{
+    json data;
+    ParserStatus status;
+    std::string error;
+
+};
+
 
 static std::vector<std::string> getTokenList(const std::string& line){
 
@@ -32,37 +45,49 @@ static std::vector<std::string> getTokenList(const std::string& line){
 }
 
 
-json parseLine(const std::string& line){
+ParserResult parseLine(const std::string& line){
+
+    const std::array<std::string,7> commandList = {"FROM","COPY","RUN","DIR","WORKDIR","ENV","CMD"} ; 
+    ParserResult result{json(),ParserStatus::ERROR,""};
 
     std::vector<std::string> tokens = getTokenList(line);
     json j;
 
-    if(tokens.empty())
-        return json();
+    if(tokens.empty()){
+        result.status = ParserStatus::IGNORE;
+        return result;
+    }
+        
 
-    std::string cmd;
+    std::string cmd; 
     for(auto c : tokens[0]){
-        cmd += std::toupper(c);
+        cmd += std::toupper(static_cast<unsigned char>(c));
     }
 
     j["cmd"] = cmd;
+    if(std::find(commandList.begin(),commandList.end(),cmd) == commandList.end()){
+        result.error = "Unknown Instruction " + cmd;
+        return result;
+    }
     
     if(cmd == "CMD"){
         
-        size_t pos = line.find(tokens[0]);
-        if(pos == std::string::npos || pos+3 > line.size()){
-            std::cerr << "error parsing the string\n";
-            return json(); 
+        size_t pos = line.find(cmd);
+        if(pos == std::string::npos || pos+tokens[0].size() > line.size()){
+            result.error = "Malformed cmd instruction";
+            return result; 
         }
 
-        std::string args = line.substr(pos+3,line.size() - (pos+3));
+        std::string args = line.substr(pos + tokens[0].size());
         args.erase(0, args.find_first_not_of(" \t"));
         try{
             j["args"] = json::parse(args);
+            result.data = j;
+            result.status = ParserStatus::OK;
         }
         catch(...){
-            std::cerr << "error parsing the string\n";
-            return json();
+            result.error = "invalid json in command";
+            return result;
         }
 
     }
@@ -72,29 +97,37 @@ json parseLine(const std::string& line){
             args.push_back(tokens[i]);
         }
         j["args"] = args;
+        result.data = j;
+        result.status = ParserStatus::OK;
     }
-    return j;
+    return result;
 }
 
 
 
 
-bool parseDocksmithFile(fs::path& path){
+std::optional<std::vector<json>> parseDocksmithFile(const fs::path& path){
 
     std::ifstream f(path);
     if(!f.is_open()){
         std::cerr << "failed to open docksmith file !\n" ;
-        return false;
+        return std::nullopt;
     }
 
     std::string line;
+    int line_no = 1;
+    std::vector<json> list;
     
     while(std::getline(f,line)){
-        auto j = parseLine(line);
-        if(j != json())
-            std::cout << j << std::endl;
+        
+        auto result = parseLine(line);
+        if(result.status == ParserStatus::OK)
+            list.push_back(result.data);
+        else if(result.status == ParserStatus::ERROR)    
+            std::cout << result.error << " at line: " << line_no << std::endl;
+        line_no++;
     }
 
-    f.close();
-    return true;
+    return list;
 }
+
