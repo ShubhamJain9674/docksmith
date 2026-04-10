@@ -45,7 +45,7 @@ static std::vector<std::string> getTokenList(const std::string& line){
 }
 
 
-ParserResult parseLine(const std::string& line){
+static ParserResult parseLine(const std::string& line){
 
     const std::array<std::string,7> commandList = {"FROM","COPY","RUN","DIR","WORKDIR","ENV","CMD"} ; 
     ParserResult result{json(),ParserStatus::ERROR,""};
