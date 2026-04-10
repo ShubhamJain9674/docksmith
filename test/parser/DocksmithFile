@@ -1,0 +1,21 @@
+# Base image (must exist locally or build fails)
+FROM ubuntu:22.04
+
+# Set environment variables (no layer created)
+ENV APP_ENV=production
+ENV APP_PORT=8080
+
+# Set working directory (no layer created)
+WORKDIR /app
+
+# Copy files from build context into image (creates a layer)
+COPY src/ /app/
+
+# Run a command inside the container filesystem (creates a layer)
+RUN apt-get update && apt-get install -y python3
+
+# Another RUN instruction (new layer)
+RUN chmod +x /app/start.sh
+
+# Default command (no layer created, must be JSON array)
+CMD ["python3", "/app/main.py"]

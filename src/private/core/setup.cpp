@@ -6,12 +6,12 @@ namespace fs = std::filesystem;
 
 
 
-bool checkLayersCache(){
+static bool checkLayersCache(){
     const fs::path cache = getExecutableDir() / "cache" / "layers.json";
     return fs::exists(cache);
 }
 
-void createLayersCache(){
+static void createLayersCache(){
     const fs::path cache = getExecutableDir() / "cache" / "layers.json";
     std::ofstream f(cache);
 
@@ -67,6 +67,9 @@ void initDocksmithDir(){
             const auto path  = exe_dir / "base_image";
 
             auto req_file = getBaseImageTarFile();
+            if(req_file == "")
+                return;
+
             std::uintmax_t size = fs::file_size((path / req_file));
             
             auto digest = calculateBaseLinuxDigest();

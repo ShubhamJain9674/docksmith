@@ -50,6 +50,10 @@ static int containerMain(void* arg) {
     argv.push_back(nullptr);
 
     // exec
+    if(a->commands->size() == 0){ 
+        std::cerr << " No commands were passed to run on the container! \n";
+        return 1;
+    }
     execvpe(a->commands->at(0).c_str(),
             const_cast<char* const*>(argv.data()),
             const_cast<char* const*>(env.data()));
