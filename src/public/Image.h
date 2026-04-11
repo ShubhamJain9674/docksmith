@@ -65,6 +65,7 @@ class Image{
         const std::string& getTag() { return tag; }
         const std::string& getDigest() { return digest; }
         const std::string& getCreated() { return created; }
+        const std::vector<Layer>& getLayers() { return layers; }
         nlohmann::json toJson();
 
         void setName(std::string n) { name = n; }

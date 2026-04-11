@@ -71,6 +71,32 @@ void deleteJsonFile(const std::string& file){
 }
 
 
+std::string CreateTempDir(){
+    std::string base = "/tmp/docksmith-XXXXXX";
+
+    //mkdtemp modifies the string in-place.
+    //it needs a mutable buffer
+
+    char* buffer = new char[base.size() + 1];
+    std::strcpy(buffer,base.c_str());
+
+    char* result = mkdtemp(buffer);
+
+    if(!result){
+        delete[] buffer;
+        throw std::runtime_error("mkdtemp failed");
+    }
+    std::string path(result);
+    delete[] buffer;
+
+    return path;
+}
+
+TempDir::TempDir(){
+    path = CreateTempDir();
+}
+
+
 
 
 
