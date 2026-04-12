@@ -2,8 +2,12 @@
 #include <json.hpp>
 #include <vector>
 #include <fstream>
-#include "file_handling.h"
 
+#include <chrono>
+#include <iomanip>
+#include <sstream>
+
+#include "file_handling.h"
 
 
 
@@ -89,3 +93,7 @@ class Image{
 Image loadManifest(const std::string& file);
 void saveManifest(Image& i);
 
+
+
+
+std::string getCurrentTimeISO8601();

@@ -8,8 +8,11 @@
 #include "file_handling.h"
 #include "Image.h"
 #include "crypto.h"
+#include "runtime.h"
 
 class BuildState{
+
+    
 
     public:
         BuildState(){}
@@ -32,6 +35,11 @@ class BuildState{
         void addEnv(std::string e) { env.push_back(e); }
 
         void setCmd(const nlohmann::json& c ) { this->cmd = c; }
+
+        std::vector<Layer>& getLayers() { return layers; }
+        std::string getWorkdir() { return workdir; }
+        std::vector<std::string>& getEnv() { return env; }
+        nlohmann::json& getCmds() { return cmd; }
 
 };
 
@@ -109,6 +117,25 @@ class CopyInstruction : public Instruction {
 
 };
 
+class RunInstruction : public Instruction{
+
+    public:
+        RunInstruction(std::vector<std::string> cmd): cmd(cmd) {}
+
+        void Execute(BuildState& state)override;
+
+        std::string getCmd(){
+            std::string cmd = "";
+            for(auto str : cmd){
+                cmd += str;
+            }
+            return cmd;
+        }
+
+    private:
+        std::vector<std::string> cmd;
+};
+
 
 
 class InstructionFactory{
@@ -121,6 +148,9 @@ class InstructionFactory{
 class BuildEngine{
 
     public:
-        Image Build(const std::vector<nlohmann::json>& Instructions);
+        Image Build(std::vector<nlohmann::json>& Instructions,
+        const std::string& name,
+        const std::string& tag
+        );
 
 };

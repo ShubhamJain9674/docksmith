@@ -99,6 +99,89 @@ TempDir::TempDir(){
 
 
 
+void handleWhiteouts(const fs::path& rootfs) {
+    std::vector<fs::path> whiteouts;
+
+    // Collect first
+    for (auto& p : fs::recursive_directory_iterator(rootfs)) {
+        std::string name = p.path().filename().string();
+        if (name.rfind(".wh.", 0) == 0) {
+            whiteouts.push_back(p.path());
+        }
+    }
+
+    // Process after
+    for (auto& p : whiteouts) {
+        std::string name = p.filename().string();
+        std::string originalName = name.substr(4);
+
+        fs::path target = p.parent_path() / originalName;
+
+        if (fs::exists(target)) {
+            fs::remove_all(target);
+        }
+
+        fs::remove(p);
+    }
+}
 
 
+void extractTar(const std::filesystem::path& tarPath, const std::filesystem::path& dest){
+    std::string cmd =
+        "tar -xf " + tarPath.string() +
+        " -C " + dest.string();
 
+    int res = system(cmd.c_str());
+    if (res != 0) {
+        throw std::runtime_error("tar extraction failed");
+    }
+}
+
+Snapshot snapshotMtimes(const fs::path& rootfs) {
+    Snapshot snap;
+
+    for (auto& entry : fs::recursive_directory_iterator(rootfs)) {
+        if (!entry.is_regular_file())
+            continue;
+
+        // Get path relative to rootfs
+        fs::path relPath = fs::relative(entry.path(), rootfs);
+
+        snap[relPath.string()] = {
+            fs::last_write_time(entry.path()),
+            fs::file_size(entry.path())
+        };
+    }
+
+    return snap;
+}
+
+void createTarFromDelta(
+    const std::string& rootfs,
+    const std::string& tarPath,
+    const std::vector<std::string>& files
+) {
+    std::string cmd =
+        "tar --sort=name "
+        "--mtime='UTC 1970-01-01' "
+        "--owner=0 --group=0 --numeric-owner "
+        "-cf " + tarPath +
+        " -C " + rootfs +
+        " -T -";
+
+    FILE* pipe = popen(cmd.c_str(), "w");
+    if (!pipe) {
+        throw std::runtime_error("popen failed");
+    }
+
+    // Write file list to tar via stdin
+    for (const auto& f : files) {
+        fprintf(pipe, "%s\n", f.c_str());
+    }
+
+    int status = pclose(pipe);
+
+    if (status != 0) {
+        throw std::runtime_error("tar failed");
+    }
+}

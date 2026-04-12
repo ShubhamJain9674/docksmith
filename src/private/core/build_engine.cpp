@@ -54,6 +54,67 @@ static void copy_dir_to_tmp(const std::string& tmp_path,std::string from,std::st
     }
 }
 
+inline void createWorkDir(fs::path& dir){
+    if(!fs::exists(dir)){
+        fs::create_directory(dir);
+    }
+}
+
+static std::vector<fs::path> getDeltaFiles(Snapshot& beforeSnapshot,Snapshot& afterSnapshot){
+
+    std::vector<fs::path> delta;
+
+    for (const auto& [path, afterInfo] : afterSnapshot) {
+        auto it = beforeSnapshot.find(path);
+
+        if (it == beforeSnapshot.end()) {
+            // NEW file
+            delta.push_back(path);
+        } else {
+            const auto& beforeInfo = it->second;
+
+            if (beforeInfo.mtime != afterInfo.mtime ||
+                beforeInfo.size  != afterInfo.size) {
+                // MODIFIED file
+                delta.push_back(path);
+            }
+        }
+    }
+
+    return delta;
+
+}
+static std::vector<fs::path> getDeletedFiles(Snapshot& beforeSnapshot,Snapshot& afterSnapshot){
+    std::vector<std::filesystem::path> deleted;
+
+    for (const auto& [path, _] : beforeSnapshot) {
+        if (afterSnapshot.find(path) == afterSnapshot.end()) {
+            deleted.push_back(path);
+        }
+    }
+
+    return deleted;
+}
+
+
+static std::vector<std::string> parseCmds(const nlohmann::json& cmds) {
+    std::vector<std::string> result;
+
+    if (!cmds.is_array()) {
+        throw std::runtime_error("Expected JSON array");
+    }
+
+    for (const auto& item : cmds) {
+        if (!item.is_string()) {
+            throw std::runtime_error("Expected all elements to be strings");
+        }
+        result.push_back(item.get<std::string>());
+    }
+
+    return result;
+}
+
+
 void FromInstruction::Execute(BuildState& state){
 
     auto layers = image.getLayers();
@@ -118,6 +179,83 @@ void CopyInstruction::Execute(BuildState& state) {
     std::cout << "cache miss !" << std::endl;
 
 }
+
+
+void RunInstruction::Execute(BuildState& state){
+
+    TempDir temp_dir;
+    fs::path tmp  = fs::absolute(temp_dir.get());
+    fs::path layer_dir = getLayerDir();
+
+    auto layers = state.getLayers();
+    // for each layer copy and extract tar file.
+    for(auto& layer : layers){
+
+        fs::path tar_path = layer_dir / layer.digest;
+        // extract tar file :-
+        extractTar(tar_path,tmp);
+        handleWhiteouts(tmp);
+    }
+
+    fs::path workdir = tmp / state.getWorkdir();
+    createWorkDir(workdir);
+
+    auto beforeSnapshot = snapshotMtimes(tmp);
+    // std::vector<std::string> commands = parseCmds(state.getCmds());
+
+    runInRootLinux(tmp,workdir,state.getEnv(),cmd);
+
+    auto afterSnapshot = snapshotMtimes(tmp);
+
+    auto delta = getDeltaFiles(beforeSnapshot,afterSnapshot);
+    auto deleted = getDeletedFiles(beforeSnapshot,afterSnapshot);
+
+    //create file list
+    std::vector<std::string> files;
+
+    for (auto& p : delta) {
+        files.push_back(p.string());
+    }
+
+    // add whiteouts
+    for (auto& p : deleted) {
+        std::filesystem::path wh = p.parent_path() / (".wh." + p.filename().string());
+        files.push_back(wh.string());
+
+        // create the whiteout file in rootfs
+        std::ofstream(tmp / wh).close();
+    }
+    //sort files
+    std::sort(files.begin(), files.end());
+
+    fs::path tarfile = fs::absolute("/tmp/layer.tar");
+
+    createTarFromDelta(tmp.string(),"/tmp/layer.tar",files);
+
+
+    Layer delta_layer; 
+    auto digest = encryptSHA256(tarfile);
+    delta_layer.digest = digest;
+    fs::rename(tarfile,(layer_dir / (digest + ".tar")));
+    
+    std::uintmax_t size = fs::file_size((layer_dir / (digest + ".tar")));
+    delta_layer.size = size;
+
+    
+
+
+    delta_layer.createdBy = std::string("RUN ") + getCmd();
+
+    state.addLayer(delta_layer);
+
+    std::cout << "cache miss!" << std::endl;
+
+    // temp dir handled by RAII object temp dir when it gets out of scope;
+
+
+}
+
+
 std::unique_ptr<Instruction> InstructionFactory::Create(json& instr){
 
     std::string cmd = instr["cmd"];
@@ -138,7 +276,7 @@ std::unique_ptr<Instruction> InstructionFactory::Create(json& instr){
         return std::make_unique<CopyInstruction>(instr["args"][0],instr["args"][1]);
     }
     else if(cmd == "RUN"){
-        return nullptr; // not implemented yet.
+        return std::make_unique<RunInstruction>(instr["args"]);
     }
     else{
         std::cout << "Invalid instruction encountered!\n" << std::endl;
@@ -149,3 +287,39 @@ std::unique_ptr<Instruction> InstructionFactory::Create(json& instr){
 }
 
 
+Image BuildEngine::Build(std::vector<json>& Instructions,
+    const std::string& name,
+    const std::string& tag
+
+){
+
+    InstructionFactory instr_fact;
+    BuildState bs;
+    Image img;
+
+    // execute all instructions
+    for (auto& i : Instructions){
+        auto instr = instr_fact.Create(i);
+        instr->Execute(bs);
+    }
+
+    //create image
+    img.setName(name);
+    img.setTag(tag);
+    img.setCreated(getCurrentTimeISO8601());
+
+
+    Config conf;
+    conf.env = bs.env;
+    conf.cmds = parseCmds(bs.cmd);
+    conf.working_dir = bs.workdir;
+
+    img.setConfig(conf);
+
+    for(auto layer : bs.layers){
+        img.addLayer(layer);
+    }
+
+    return img;
+
+}

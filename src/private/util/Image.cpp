@@ -76,3 +76,14 @@ void saveManifest(Image& i){
 }
 
 
+std::string getCurrentTimeISO8601() {
+    auto now = std::chrono::system_clock::now();
+    std::time_t t = std::chrono::system_clock::to_time_t(now);
+
+    std::tm utc{};
+    gmtime_r(&t, &utc); // thread-safe version
+
+    std::stringstream ss;
+    ss << std::put_time(&utc, "%Y-%m-%dT%H:%M:%SZ");
+    return ss.str();
+}

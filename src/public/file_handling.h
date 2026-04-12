@@ -6,13 +6,16 @@
 #include <filesystem>
 #include <fstream>
 #include "crypto.h"
+#include <unordered_map>
+
 
 
 #ifdef _WIN32
-    #include <windows.h>
+#include <windows.h>
 #endif
 
 #ifdef __linux__
+    #include <cstdio>
     #include <unistd.h>
     #include <limits.h>
     #include <cstdlib>
@@ -71,3 +74,27 @@ class TempDir{
 inline std::filesystem::path getContextDir(){
     return std::filesystem::current_path();
 }
+
+
+inline std::filesystem::path getLayerDir(){
+    return (getExecutableDir() / "layers");
+}
+
+void extractTar(const std::filesystem::path& tarPath, const std::filesystem::path& dest);
+ 
+void handleWhiteouts(const std::filesystem::path& rootfs);
+
+struct FileInfo {
+    std::filesystem::file_time_type mtime;
+    uintmax_t size;
+};
+
+
+using Snapshot = std::unordered_map<std::string, FileInfo>;
+Snapshot snapshotMtimes(const std::filesystem::path& rootfs);
+
+void createTarFromDelta(
+    const std::string& rootfs,
+    const std::string& tarPath,
+    const std::vector<std::string>& files
+);
