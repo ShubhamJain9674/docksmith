@@ -47,6 +47,23 @@ inline std::filesystem::path getLayerDir(){
     return (getExecutableDir() / "layers");
 }
 
+inline bool checkPath(std::string path){
+    std::filesystem::path contextPath = std::filesystem::absolute(path);
+    if (!std::filesystem::exists(contextPath) || !std::filesystem::is_directory(contextPath))
+        return false;
+    
+    return true;
+}
+
+inline bool checkForDocksmithFile(std::string path){
+
+    std::filesystem::path docksmithfile = std::filesystem::absolute(path) / "Docksmithfile";
+
+    if (!std::filesystem::exists(docksmithfile)) {
+        return false;
+    }
+    return true;
+}
 
 void deleteJsonFile(const std::string& file);
 

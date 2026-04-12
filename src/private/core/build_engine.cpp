@@ -386,15 +386,15 @@ std::unique_ptr<Instruction> InstructionFactory::Create(json& instr){
 
 Image BuildEngine::Build(std::vector<json>& Instructions,
     const std::string& name,
-    const std::string& tag
-
+    const std::string& tag,
+    bool no_cache
 ){
 
     InstructionFactory instr_fact;
     BuildState bs;
     
-    CacheIndex cache_index = loadCache();
-    bool cache_broken = false;
+    CacheIndex cache_index = (no_cache)? CacheIndex{} :loadCache();
+    bool cache_broken = no_cache;
 
     Image img;
 

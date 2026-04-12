@@ -181,7 +181,8 @@ class BuildEngine{
     public:
         Image Build(std::vector<nlohmann::json>& Instructions,
         const std::string& name,
-        const std::string& tag
+        const std::string& tag,
+        bool no_cache
         );
 
 };

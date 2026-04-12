@@ -3,9 +3,14 @@
 #include <vector>
 #include <fstream>
 #include <json.hpp>
+#include <filesystem>
 
 #include "file_handling.h"
 #include "Image.h"
+
+#include "parser.h"
+#include "build_engine.h"
+
 
 
 

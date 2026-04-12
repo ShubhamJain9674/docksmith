@@ -1,6 +1,7 @@
 #include "cli.h"
 
 using json = nlohmann::json;
+namespace fs = std::filesystem;
 
 void buildCmd(const std::string& build_tag,const std::string& build_context,bool no_cache){
     std::cout << "[BUILD]\n";
@@ -9,6 +10,45 @@ void buildCmd(const std::string& build_tag,const std::string& build_context,bool
     std::cout << "No cache: " << (no_cache ? "true" : "false") << "\n";
 
     //implement build command :-
+
+    //check context path
+
+    if(!checkPath(build_context)){
+        std::cerr << "invalid build context\n";
+    }
+
+    if(!checkForDocksmithFile(build_context)){
+        std::cerr << "Docksmithfile not found in context\n";
+    }
+
+    fs::path  docksmith_filepath = fs::absolute(build_context) / "Docksmithfile";
+    auto instructions = parseDocksmithFile(docksmith_filepath);
+
+    if (!instructions.has_value()) {
+        std::cerr << "No instructions found!" << std::endl;
+        return;
+    }
+
+
+
+
+    BuildEngine engine;
+   
+    auto pos = build_tag.find(':');
+    std::string image_name = build_tag.substr(0, pos);
+    std::string image_tag  = (pos == std::string::npos) ? "latest" : build_tag.substr(pos + 1);
+    Image image;
+
+    try {
+        image = engine.Build(instructions.value(), image_name,image_tag, no_cache);
+    } catch (const std::exception& e) {
+        std::cerr << "Build failed: " << e.what() << "\n";
+        return;
+    }
+
+    saveManifest(image);
+
+    std::cout << "Build Complete" << std::endl;
 
 
 }
