@@ -72,6 +72,92 @@ void runCmd(const std::string& run_image,
 
 
     //implement run command:-
+    
+    // 1 parse name:tag 
+    std::string name , tag;
+    auto pos = run_image.find(":");
+    if(pos == std::string::npos){
+        name = run_image;
+        tag = "latest";
+    }
+    else{
+        name = run_image.substr(0,pos);
+        tag = run_image.substr(pos + 1);
+    }
+
+    //2 load image json
+
+    Image image = loadManifest(run_image + ".json");
+
+    //3 creating temp dir using RAII object
+    TempDir temp;
+    const auto tmp = fs::absolute(temp.get());
+ 
+    //4 extract layers
+
+    auto layers = image.getLayers();
+    const fs::path layer_dir = getLayerDir();
+    
+    for(auto layer : layers){
+        fs::path layer_path = layer_dir / (layer.digest + ".tar");
+        if(!fs::exists(layer_path)){
+            std::cerr << "missing layer : " << layer.digest << "\n";
+            return;
+        }
+
+        // extract tar
+
+        std::stringstream cmd;
+        cmd << "tar -xf " << layer_path << " -C " << tmp;
+
+        if (system(cmd.str().c_str()) != 0) {
+            std::cerr << "Failed to extract layer\n";
+            return;
+        }
+
+        // apply whiteout
+
+        handleWhiteouts(tmp);
+    }
+
+    // prepare env :-
+    std::vector<std::string> finalEnv;
+
+    // image env
+    for (auto& e : image.getConfig().env) {
+        finalEnv.push_back(e);
+    }
+
+    // CLI overrides
+    for (auto& e : env_vars) {
+        finalEnv.push_back(e);
+    }
+
+    // prepare cmd 
+
+    std::vector<std::string> finalCmd;
+
+    if (!run_cmd.empty()) {
+        finalCmd = run_cmd;  // CLI override
+    } else {
+        for (auto& c : image.getConfig().cmds) {
+            finalCmd.push_back(c);
+        }
+    }
+
+    // Working dir :-
+
+    auto workdir = image.getConfig().working_dir;
+
+    bool ok = runInRootLinux(tmp,workdir,finalEnv,finalCmd);
+
+    if(!ok){
+        std::cerr << "Container execution failed\n";
+    }
+
+    //end
+    std::cout << "RUN COMPLETE" << std::endl;
+    // temp file cleanup handled by RAII obbkect
 
 }
 
