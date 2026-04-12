@@ -187,23 +187,70 @@ void rmiCmd(const std::string& rmi_image){
     std::cout << "Removing: " << rmi_image << "\n";
 
     //implement rmi command:-
-    //not completed
+
+    std::string name,tag;
+
+    auto pos = rmi_image.find(':');
+    if (pos == std::string::npos) {
+        name = rmi_image;
+        tag = "latest";
+    } else {
+        name = rmi_image.substr(0, pos);
+        tag  = rmi_image.substr(pos + 1);
+    }
+
+
+    const fs::path image_dir = getExecutableDir() / "images";
+    fs::path image_path = image_dir / rmi_image;
+
+    if (!fs::exists(image_dir)) {
+        std::cerr << "Image not found\n";
+        return;
+    }
  
     // - load the image json
     Image i = loadManifest(rmi_image+".json"); 
     
 
+    // collect used layers
+    auto target_layers = i.getLayers();
+    std::unordered_set<std::string> used_layers;
 
-    // get all the layer info
-    // for each layer check if its shared by other layer
-    // if not shared delete the layer
+    for (auto& dir : fs::directory_iterator(image_dir)) {
+        if (!dir.is_directory()) continue;
+
+        for (auto& file : fs::directory_iterator(dir.path())) {
+            if (file.path() == image_path) continue; // skip target image
+
+            if (file.path().extension() != ".json") continue;
+
+            json other;
+            std::ifstream(file.path()) >> other;
+
+            for (auto& l : other["layers"]) {
+                used_layers.insert(l["digest"]);
+            }
+        }
+    }
 
 
+    // delete unused layers.
+    for (auto& layer : target_layers) {
+        std::string digest = layer.digest;
+        if (used_layers.count(digest) == 0) {
+            fs::path layer_path = getLayerDir() / digest;
+
+            if (fs::exists(layer_path)) {
+                std::cout << "Deleting layer: " << digest << "\n";
+                fs::remove(layer_path);
+            }
+        } else {
+            std::cout << "Skipping shared layer: " << digest << "\n";
+        }
+    }
 
     //delete the json file
 
     deleteJsonFile(i.getName());
-
-
 
 }

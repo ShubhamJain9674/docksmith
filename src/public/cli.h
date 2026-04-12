@@ -4,6 +4,7 @@
 #include <fstream>
 #include <json.hpp>
 #include <filesystem>
+#include <unordered_set>
 
 #include "file_handling.h"
 #include "Image.h"
