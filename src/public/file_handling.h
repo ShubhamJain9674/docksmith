@@ -34,6 +34,19 @@ std::vector<std::string> getAllFilesUnderDir(const std::string& dir,
     bool strip_extension = false    
 );
 
+inline std::filesystem::path getCacheDir(){
+    return getExecutableDir() / "cache";
+}
+
+inline std::filesystem::path getContextDir(){
+    return std::filesystem::current_path();
+}
+
+
+inline std::filesystem::path getLayerDir(){
+    return (getExecutableDir() / "layers");
+}
+
 
 void deleteJsonFile(const std::string& file);
 
@@ -71,14 +84,7 @@ class TempDir{
         std::string path;
 };
 
-inline std::filesystem::path getContextDir(){
-    return std::filesystem::current_path();
-}
 
-
-inline std::filesystem::path getLayerDir(){
-    return (getExecutableDir() / "layers");
-}
 
 void extractTar(const std::filesystem::path& tarPath, const std::filesystem::path& dest);
  

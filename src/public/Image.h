@@ -34,6 +34,11 @@ struct Layer{
     
 };
 
+inline bool layerExists(const std::string& digest) {
+    std::filesystem::path p = getLayerDir() / digest;
+    return std::filesystem::exists(p);
+}
+
 struct Config{
     std::vector<std::string> env;
     std::vector<std::string> cmds;

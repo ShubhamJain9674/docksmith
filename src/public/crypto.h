@@ -8,3 +8,4 @@
 #include <filesystem>
 
 std::string encryptSHA256(const std::filesystem::path& filePath);
+std::string sha256String(const std::string& data);

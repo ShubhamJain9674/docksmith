@@ -9,6 +9,7 @@
 #include "Image.h"
 #include "crypto.h"
 #include "runtime.h"
+#include "cache.h"
 
 class BuildState{
 
@@ -36,6 +37,8 @@ class BuildState{
 
         void setCmd(const nlohmann::json& c ) { this->cmd = c; }
 
+        std::string getLastLayerDigest() const;
+
         std::vector<Layer>& getLayers() { return layers; }
         std::string getWorkdir() { return workdir; }
         std::vector<std::string>& getEnv() { return env; }
@@ -47,7 +50,11 @@ class Instruction{
 
     public:
         virtual ~Instruction() = default;
-        virtual void Execute(BuildState& state) = 0;
+        virtual void Execute(
+            BuildState& state,
+            CacheIndex& cache,
+            bool& cache_broken
+        ) = 0;
 
 };
 
@@ -58,7 +65,11 @@ class FromInstruction : public Instruction{
         FromInstruction(std::string image_name){
             image = loadManifest(image_name);
         }
-        void Execute(BuildState& state) override;
+        void Execute(
+            BuildState& state,
+            CacheIndex& cache,
+            bool& cache_broken
+        ) override;
 
     private:
         Image image;
@@ -72,7 +83,11 @@ class WorkingdirInstruction : public Instruction{
     public:
         WorkingdirInstruction(std::string dir) : dir(dir){};
 
-        void Execute(BuildState& state)override;
+        void Execute(
+            BuildState& state,
+            CacheIndex& cache,
+            bool& cache_broken
+        ) override;
 
 
     private:
@@ -85,7 +100,11 @@ class EnvInstruction : public Instruction{
     public:
         EnvInstruction(std::string env) : env(env){}
 
-        void Execute(BuildState& state)override;
+        void Execute(
+            BuildState& state,
+            CacheIndex& cache,
+            bool& cache_broken
+        ) override;
     
     private:
         std::string env;
@@ -96,7 +115,11 @@ class CmdInstruction : public Instruction {
 
     public:
         CmdInstruction(nlohmann::json cmd) : cmd(cmd){};
-        void Execute(BuildState& state)override;
+        void Execute(
+            BuildState& state,
+            CacheIndex& cache,
+            bool& cache_broken
+        ) override;
 
     private:
         nlohmann::json cmd;
@@ -108,7 +131,11 @@ class CopyInstruction : public Instruction {
         CopyInstruction(std::string from,std::string dest) 
             : from(from),dest(dest){}
         
-        void Execute(BuildState& state)override;
+        void Execute(
+            BuildState& state,
+            CacheIndex& cache,
+            bool& cache_broken
+        ) override;
 
 
     private:
@@ -122,7 +149,11 @@ class RunInstruction : public Instruction{
     public:
         RunInstruction(std::vector<std::string> cmd): cmd(cmd) {}
 
-        void Execute(BuildState& state)override;
+        void Execute(
+            BuildState& state,
+            CacheIndex& cache,
+            bool& cache_broken
+        ) override;
 
         std::string getCmd(){
             std::string cmd = "";

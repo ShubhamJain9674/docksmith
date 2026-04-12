@@ -114,9 +114,23 @@ static std::vector<std::string> parseCmds(const nlohmann::json& cmds) {
     return result;
 }
 
+std::string BuildState::getLastLayerDigest() const {
+    if (layers.empty())
+        return "base";   // or base image digest later
 
-void FromInstruction::Execute(BuildState& state){
+    return layers.back().digest;
+}
 
+
+void FromInstruction::Execute(
+    BuildState& state,
+    CacheIndex& cache,
+    bool& cache_broken
+){
+
+    (void)cache;
+    (void)cache_broken;
+    
     auto layers = image.getLayers();
     for(auto& layer : layers){
         state.addLayer(layer);
@@ -124,20 +138,71 @@ void FromInstruction::Execute(BuildState& state){
 
 }
 
-void WorkingdirInstruction::Execute(BuildState& state){
+void WorkingdirInstruction::Execute(
+    BuildState& state,
+    CacheIndex& cache,
+    bool& cache_broken
+){
+    (void)cache;
+    (void)cache_broken;
     state.setWorkdir(dir);
 }
 
-void EnvInstruction::Execute(BuildState& state){
+void EnvInstruction::Execute(
+    BuildState& state,
+    CacheIndex& cache,
+    bool& cache_broken
+
+){
+    (void)cache;
+    (void)cache_broken;
     state.env.push_back(env);
 }
 
-void CmdInstruction::Execute(BuildState& state){
+void CmdInstruction::Execute(
+    BuildState& state,
+    CacheIndex& cache,
+    bool& cache_broken
+){
+    (void)cache;
+    (void)cache_broken;
     state.setCmd(cmd);
 }
 
-void CopyInstruction::Execute(BuildState& state) {
+void CopyInstruction::Execute(
+    BuildState& state,
+    CacheIndex& cache,
+    bool& cache_broken
+) {
     
+    std::string prev_digest = state.getLastLayerDigest();
+    std::string instruction_text = "COPY " + from + " " + dest;
+    std::string source_hash = hashDirectory(from);
+    std::string cache_key = computeCacheKey(
+        prev_digest,
+        instruction_text,
+        state.getWorkdir(),
+        state.getEnv(),
+        source_hash
+    );
+
+
+    //cache hit
+    if(!cache_broken && (cache.find(cache_key)!=cache.end()) ){
+        std::string digest = cache[cache_key];
+        if(layerExists(digest)){
+            std::cout << "CACHE HIT " << instruction_text << "\n";
+            Layer l;
+            l.digest = digest;
+            state.addLayer(l);  //check
+            return;
+        }
+    }
+
+    //cache miss
+    cache_broken = true;
+
+
     TempDir temp_dir;
     fs::path staging = fs::absolute(temp_dir.get());
     copy_dir_to_tmp(staging, from, dest);
@@ -181,7 +246,39 @@ void CopyInstruction::Execute(BuildState& state) {
 }
 
 
-void RunInstruction::Execute(BuildState& state){
+void RunInstruction::Execute(
+    BuildState& state,
+    CacheIndex& cache,
+    bool& cache_broken
+){
+    
+    std::string prev_digest = state.getLastLayerDigest();
+    std::string instruction_text = getCmd();
+    std::string cache_key = computeCacheKey(
+        prev_digest,
+        instruction_text,
+        state.getWorkdir(),
+        state.getEnv(),
+        ""
+    );
+
+    // cache hit condition :-
+
+    if(!cache_broken && (cache.find(cache_key)!= cache.end())){
+        std::string digest = cache[cache_key];
+
+        if(layerExists(digest)){
+            std::cout << "CACHE HIT " << instruction_text << "\n";
+            Layer l;
+            l.digest = digest;
+            state.addLayer(l);
+            return;
+        }
+    }
+
+    //cache miss
+    cache_broken = true;
+
 
     TempDir temp_dir;
     fs::path tmp  = fs::absolute(temp_dir.get());
@@ -295,12 +392,17 @@ Image BuildEngine::Build(std::vector<json>& Instructions,
 
     InstructionFactory instr_fact;
     BuildState bs;
+    
+    CacheIndex cache_index = loadCache();
+    bool cache_broken = false;
+
     Image img;
 
     // execute all instructions
     for (auto& i : Instructions){
         auto instr = instr_fact.Create(i);
-        instr->Execute(bs);
+        instr->Execute(bs, cache_index,cache_broken);
+        saveCache(cache_index);
     }
 
     //create image

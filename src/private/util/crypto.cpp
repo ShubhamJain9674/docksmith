@@ -55,3 +55,31 @@ std::string encryptSHA256(const std::filesystem::path& filePath) {
     return shastr.str();
 }
 
+
+std::string sha256String(const std::string& data) {
+    EVP_MD_CTX* mdctx = EVP_MD_CTX_new();
+    if (!mdctx) throw std::runtime_error("EVP_MD_CTX_new failed");
+
+    if (!EVP_DigestInit_ex(mdctx, EVP_sha256(), nullptr))
+        throw std::runtime_error("DigestInit failed");
+
+    if (!EVP_DigestUpdate(mdctx, data.data(), data.size()))
+        throw std::runtime_error("DigestUpdate failed");
+
+    unsigned char result[EVP_MAX_MD_SIZE];
+    unsigned int len = 0;
+
+    if (!EVP_DigestFinal_ex(mdctx, result, &len))
+        throw std::runtime_error("DigestFinal failed");
+
+    EVP_MD_CTX_free(mdctx);
+
+    std::stringstream ss;
+    ss << "sha256:" << std::hex << std::setfill('0');
+
+    for (unsigned int i = 0; i < len; ++i) {
+        ss << std::setw(2) << (int)result[i];
+    }
+
+    return ss.str();
+}
