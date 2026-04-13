@@ -89,9 +89,9 @@ std::string getBaseImageTarFile(){
     auto exe_dir = getExecutableDir();
     auto path  = exe_dir / "base_image";
     std::string req_file;
-    
-    
+
     std::vector<std::string> files = getAllFilesUnderDir(path,".tar");
+
     if(files.size() == 0){
         std::cerr << "base linux file not found.Look into readme for more info\n";
         return "";

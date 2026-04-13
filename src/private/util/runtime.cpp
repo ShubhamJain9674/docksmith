@@ -72,31 +72,36 @@ static int containerMain(void* arg) {
     for (auto& c : *(a->commands))
         cmd += c + " ";
 
-    // std::vector<const char*> argv = { "/bin/sh", "-c", cmd.c_str(), nullptr };
-
-        // Debug: check what we can actually see
+    
+    // Debug: check what we can actually see
     fprintf(stderr, "cwd = ");
     char cwd[256];
     if (getcwd(cwd, sizeof(cwd))) fprintf(stderr, "%s\n", cwd);
-
+    
     struct stat st;
     fprintf(stderr, "stat /bin/sh: %s\n", stat("/bin/sh", &st) == 0 ? "OK" : strerror(errno));
     fprintf(stderr, "stat /bin/busybox: %s\n", stat("/bin/busybox", &st) == 0 ? "OK" : strerror(errno));
     fprintf(stderr, "access /bin/sh X_OK: %s\n", access("/bin/sh", X_OK) == 0 ? "OK" : strerror(errno));
     fprintf(stderr, "access /bin/busybox X_OK: %s\n", access("/bin/busybox", X_OK) == 0 ? "OK" : strerror(errno));
     fprintf(stderr, "uid=%d gid=%d\n", getuid(), getgid());
+    
+    // fprintf(stderr, "rootfs at: %s\n", a->rootDir.c_str());
+    // sleep(100); // pause so you can inspect
+    
+    std::vector<const char*> argv = { "/bin/sh", "-c", cmd.c_str(), nullptr };
+
+    execvpe("/bin/sh",
+            const_cast<char* const*>(argv.data()),
+            const_cast<char* const*>(env.data()));
 
 
-    // execvpe("/bin/sh",
-    //         const_cast<char* const*>(argv.data()),
-    //         const_cast<char* const*>(env.data()));
+    // workaround
 
+    // std::vector<const char*> argv = { "/bin/busybox", "sh", "-c", cmd.c_str(), nullptr };
 
-    std::vector<const char*> argv = { "/bin/busybox", "sh", "-c", cmd.c_str(), nullptr };
-
-    execvpe("/bin/busybox", 
-        const_cast<char* const*>(argv.data()),
-        const_cast<char* const*>(env.data()));
+    // execvpe("/bin/busybox", 
+    //     const_cast<char* const*>(argv.data()),
+    //     const_cast<char* const*>(env.data()));
 
     perror("exec failed");
     _exit(1);
@@ -111,7 +116,10 @@ static bool writeUserMappings(pid_t pid) {
             std::cerr << "failed to open setgroups: " << strerror(errno) << "\n";
             return false;
         }
-        write(fd, "deny", 4);
+        if (write(fd, "deny", 4) == -1) {
+            perror("write setgroups failed");
+            return false;
+        }   
         close(fd);
     }
 
@@ -124,7 +132,10 @@ static bool writeUserMappings(pid_t pid) {
             std::cerr << "failed to open uid_map: " << strerror(errno) << "\n";
             return false;
         }
-        write(fd, map.c_str(), map.size());
+        if (write(fd, map.c_str(), map.size()) == -1) {
+            perror("write uid_map failed");
+            return false;
+        }
         close(fd);
     }
 
@@ -137,7 +148,10 @@ static bool writeUserMappings(pid_t pid) {
             std::cerr << "failed to open gid_map: " << strerror(errno) << "\n";
             return false;
         }
-        write(fd, map.c_str(), map.size());
+        if (write(fd, map.c_str(), map.size()) == -1) {
+            perror("write uid_map failed");
+            return false;
+        }
         close(fd);
     }
 
