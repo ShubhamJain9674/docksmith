@@ -111,6 +111,7 @@ struct FileInfo {
     std::filesystem::file_time_type mtime;
     uintmax_t size;
     bool isSymlink = false;
+    bool isDirectory = false;
     std::string symlinkTarget = "";
 };
 

@@ -71,6 +71,8 @@ inline void createWorkDir(fs::path& dir){
     }
 }
 
+
+
 static std::vector<fs::path> getDeltaFiles(Snapshot& beforeSnapshot,Snapshot& afterSnapshot){
 
     std::vector<fs::path> delta;
@@ -140,6 +142,88 @@ std::string BuildState::getLastLayerDigest() const {
 }
 
 
+
+
+
+Layer buildLayer(
+    BuildState& state,
+    std::vector<std::string>& cmds
+) {
+    TempDir temp_dir;
+    fs::path tmp = fs::absolute(temp_dir.get());
+    fs::path layer_dir = getLayerDir();
+
+    for (auto& layer : state.getLayers()) {
+        fs::path tar_path = layer_dir / (layer.digest + ".tar");
+        extractTar(tar_path, tmp);
+        handleWhiteouts(tmp);
+    }
+
+    std::string chmod_cmd = "chmod 755 " + tmp.string();
+    system(chmod_cmd.c_str());
+
+
+    // fs::path workdir = tmp / state.getWorkdir();
+    
+    std::string wd = state.getWorkdir();
+    if (!wd.empty() && wd[0] == '/')
+        wd = wd.substr(1);  // strip leading /
+
+
+    fprintf(stderr, "workdir from state: '%s'\n", state.getWorkdir().c_str());
+    fs::path workdir = tmp / wd;
+    fprintf(stderr, "workdir full path: '%s'\n", workdir.c_str());    
+
+
+
+
+    // fs::create_directories(workdir);
+    if (!fs::exists(workdir)) {
+        // create it on host with a shell command so permissions aren't an issue
+        std::string cmd = "mkdir -p " + workdir.string();
+        system(cmd.c_str());
+    }
+
+    auto beforeSnapshot = snapshotMtimes(tmp);
+
+    bool success = runInRootLinux(tmp, wd, state.getEnv(), cmds);
+    if (!success)
+        throw std::runtime_error("Build failed");
+
+    auto afterSnapshot = snapshotMtimes(tmp);
+    auto delta = getDeltaFiles(beforeSnapshot, afterSnapshot);
+    auto deleted = getDeletedFiles(beforeSnapshot, afterSnapshot);
+
+    std::vector<std::string> files;
+    for (auto& p : delta)
+        files.push_back(p.string());
+
+    for (auto& p : deleted) {
+        fs::path wh = p.parent_path() / (".wh." + p.filename().string());
+        files.push_back(wh.string());
+        std::ofstream(tmp / wh).close();
+    }
+
+    std::sort(files.begin(), files.end());
+
+    fs::path tarfile = fs::absolute("/tmp/layer.tar");
+    createTarFromDelta(tmp.string(), tarfile.string(), files);
+
+    Layer new_layer;
+    new_layer.digest = encryptSHA256(tarfile);
+    new_layer.size = fs::file_size(tarfile);
+
+    try {
+        fs::copy_file(tarfile, layer_dir / (new_layer.digest + ".tar"),
+                      fs::copy_options::overwrite_existing);
+        fs::remove(tarfile);
+    } catch (const fs::filesystem_error& e) {
+        std::cerr << "Layer move failed: " << e.what() << "\n";
+    }
+
+    return new_layer;
+}
+
 void FromInstruction::Execute(
     BuildState& state,
     CacheIndex& cache,
@@ -157,6 +241,8 @@ void FromInstruction::Execute(
 
 }
 
+
+
 void WorkingdirInstruction::Execute(
     BuildState& state,
     CacheIndex& cache,
@@ -164,8 +250,16 @@ void WorkingdirInstruction::Execute(
 ){
     (void)cache;
     (void)cache_broken;
+
     state.setWorkdir(dir);
+    cache_broken = true;
+    std::vector<std::string> mkdirCmd = { "mkdir -p " + dir };
+    Layer l = buildLayer(state, mkdirCmd);  
+    state.addLayer(l);
 }
+
+
+
 
 void EnvInstruction::Execute(
     BuildState& state,
@@ -314,82 +408,7 @@ void RunInstruction::Execute(
     cache_broken = true;
 
 
-    TempDir temp_dir;
-    fs::path tmp  = fs::absolute(temp_dir.get());
-
-    fs::path layer_dir = getLayerDir();
-
-    auto layers = state.getLayers();
-    // for each layer copy and extract tar file.
-    for(auto& layer : layers){
-
-        fs::path tar_path = layer_dir / (layer.digest + ".tar");
-        // extract tar file :-
-        extractTar(tar_path,tmp);
-        handleWhiteouts(tmp);
-    }
-
-    fs::path workdir = tmp / state.getWorkdir();
-    createWorkDir(workdir);
-
-    auto beforeSnapshot = snapshotMtimes(tmp);
-    // std::vector<std::string> commands = parseCmds(state.getCmds());
-
-    bool success = runInRootLinux(tmp,workdir,state.getEnv(),cmd);
-
-
-    if (!success) {
-        std::cerr << "RUN instruction failed\n";
-        throw std::runtime_error("Build failed");
-    }
-
-    auto afterSnapshot = snapshotMtimes(tmp);
-
-    auto delta = getDeltaFiles(beforeSnapshot,afterSnapshot);
-    auto deleted = getDeletedFiles(beforeSnapshot,afterSnapshot);
-
-    //create file list
-    std::vector<std::string> files;
-
-    for (auto& p : delta) {
-        files.push_back(p.string());
-    }
-
-    // add whiteouts
-    for (auto& p : deleted) {
-        std::filesystem::path wh = p.parent_path() / (".wh." + p.filename().string());
-        files.push_back(wh.string());
-
-        // create the whiteout file in rootfs
-        std::ofstream(tmp / wh).close();
-    }
-    //sort files
-    std::sort(files.begin(), files.end());
-
-    fs::path tarfile = fs::absolute("/tmp/layer.tar");
-
-    createTarFromDelta(tmp.string(),"/tmp/layer.tar",files);
-
-
-    Layer delta_layer; 
-    auto digest = encryptSHA256(tarfile);
-    delta_layer.digest = digest;
-    // fs::rename(tarfile,(layer_dir / (digest + ".tar")));
-    
-    try {
-        fs::copy_file(tarfile, (layer_dir / (digest + ".tar")),
-                    fs::copy_options::overwrite_existing);
-        fs::remove(tarfile);
-    } catch (const fs::filesystem_error& e) {
-        std::cerr << "Layer move failed: " << e.what() << "\n";
-    }
-
-
-    std::uintmax_t size = fs::file_size((layer_dir / (digest + ".tar")));
-    delta_layer.size = size;
-
-    
-
+    Layer delta_layer = buildLayer(state,cmd);
 
     delta_layer.createdBy = std::string("RUN ") + getCmd();
 

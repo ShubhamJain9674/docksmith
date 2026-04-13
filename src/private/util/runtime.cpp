@@ -27,11 +27,11 @@ static int containerMain(void* arg) {
         return 1;
     }
 
-    // bind mount rootfs so it's a mount point (required for chroot in new ns)
-    if (mount(a->rootDir.c_str(), a->rootDir.c_str(), NULL, MS_BIND | MS_REC, NULL) == -1) {
-        perror("bind mount rootdir failed");
-        return 1;
-    }
+    // // bind mount rootfs so it's a mount point (required for chroot in new ns)
+    // if (mount(a->rootDir.c_str(), a->rootDir.c_str(), NULL, MS_BIND | MS_REC, NULL) == -1) {
+    //     perror("bind mount rootdir failed");
+    //     return 1;
+    // }
 
     // chroot — do this ONCE
     if (chdir(a->rootDir.c_str()) == -1) {
@@ -56,6 +56,9 @@ static int containerMain(void* arg) {
 
     // workdir — we are inside chroot now, so wd must be relative to /
     std::string wd = a->workDir.empty() ? "/" : a->workDir.string();
+
+
+    std::cout << "wd passed to chdir : " << wd << "\n";
     if (chdir(wd.c_str()) == -1) {
         perror("chdir to workdir failed");
         return 1;
@@ -78,17 +81,21 @@ static int containerMain(void* arg) {
     char cwd[256];
     if (getcwd(cwd, sizeof(cwd))) fprintf(stderr, "%s\n", cwd);
     
-    struct stat st;
-    fprintf(stderr, "stat /bin/sh: %s\n", stat("/bin/sh", &st) == 0 ? "OK" : strerror(errno));
-    fprintf(stderr, "stat /bin/busybox: %s\n", stat("/bin/busybox", &st) == 0 ? "OK" : strerror(errno));
-    fprintf(stderr, "access /bin/sh X_OK: %s\n", access("/bin/sh", X_OK) == 0 ? "OK" : strerror(errno));
-    fprintf(stderr, "access /bin/busybox X_OK: %s\n", access("/bin/busybox", X_OK) == 0 ? "OK" : strerror(errno));
-    fprintf(stderr, "uid=%d gid=%d\n", getuid(), getgid());
+    // struct stat st;
+    // fprintf(stderr, "stat /bin/sh: %s\n", stat("/bin/sh", &st) == 0 ? "OK" : strerror(errno));
+    // fprintf(stderr, "stat /bin/busybox: %s\n", stat("/bin/busybox", &st) == 0 ? "OK" : strerror(errno));
+    // fprintf(stderr, "access /bin/sh X_OK: %s\n", access("/bin/sh", X_OK) == 0 ? "OK" : strerror(errno));
+    // fprintf(stderr, "access /bin/busybox X_OK: %s\n", access("/bin/busybox", X_OK) == 0 ? "OK" : strerror(errno));
+    // fprintf(stderr, "uid=%d gid=%d\n", getuid(), getgid());
     
     // fprintf(stderr, "rootfs at: %s\n", a->rootDir.c_str());
     // sleep(100); // pause so you can inspect
     
     std::vector<const char*> argv = { "/bin/sh", "-c", cmd.c_str(), nullptr };
+
+    struct stat rst;
+    stat("/", &rst);
+    fprintf(stderr, "/ mode=%o uid=%d gid=%d\n", rst.st_mode & 0777, rst.st_uid, rst.st_gid);
 
     execvpe("/bin/sh",
             const_cast<char* const*>(argv.data()),
@@ -179,9 +186,9 @@ bool runInRootLinux(
     char* stackTop = stack.data() + STACK_SIZE; // stack grows downward
 
     // Before clone(), add:
-    std::cerr << "=== rootDir contents ===\n";
-    for (auto& p : std::filesystem::directory_iterator(rootDir))
-        std::cerr << "  " << p.path() << "\n";
+    // std::cerr << "=== rootDir contents ===\n";
+    // for (auto& p : std::filesystem::directory_iterator(rootDir))
+    //     std::cerr << "  " << p.path() << "\n";
 
 
 

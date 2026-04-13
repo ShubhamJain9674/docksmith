@@ -149,6 +149,7 @@ make clean
 ```
   wget https://dl-cdn.alpinelinux.org/alpine/v3.18/releases/x86_64/alpine-minirootfs-3.18.0-x86_64.tar.gz
 ```
+- extract the tar file with gzip
 - run ./docksmith once
 - copy alpineLinux.tar file to base_image folder.
 - run ./docksmith again

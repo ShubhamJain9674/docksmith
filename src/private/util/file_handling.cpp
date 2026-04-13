@@ -144,7 +144,8 @@ Snapshot snapshotMtimes(const fs::path& rootfs) {
         fs::directory_options::skip_permission_denied
     )) {
 
-        if (!entry.is_regular_file() && !entry.is_symlink())
+        if (!entry.is_regular_file() && !entry.is_symlink() 
+                                    && !entry.is_directory())
             continue;
 
         // Get path relative to rootfs
@@ -159,11 +160,17 @@ Snapshot snapshotMtimes(const fs::path& rootfs) {
             info.size = 0;
             info.symlinkTarget = fs::read_symlink(entry.path().string());
             info.isSymlink = true;
+        }else if(entry.is_directory()){
+            info.mtime = fs::last_write_time(entry.path());
+            info.size = 0;
+            info.isSymlink = false;
+            info.isDirectory = true;
         }
         else{
             info.mtime = fs::last_write_time(entry.path());
             info.size = fs::file_size(entry.path());
             info.isSymlink = false;
+            info.isDirectory = true;
         }
 
         snap[relPath.string()] = info;
@@ -171,6 +178,7 @@ Snapshot snapshotMtimes(const fs::path& rootfs) {
 
     return snap;
 }
+
 
 void createTarFromDelta(
     const std::string& rootfs,
@@ -183,7 +191,7 @@ void createTarFromDelta(
         "--owner=0 --group=0 --numeric-owner "
         "-cf " + tarPath +
         " -C " + rootfs +
-        " -T -";
+        " -T - ";
 
     FILE* pipe = popen(cmd.c_str(), "w");
     if (!pipe) {
