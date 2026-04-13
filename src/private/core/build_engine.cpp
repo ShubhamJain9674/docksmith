@@ -100,6 +100,10 @@ static std::vector<fs::path> getDeletedFiles(Snapshot& beforeSnapshot,Snapshot& 
 static std::vector<std::string> parseCmds(const nlohmann::json& cmds) {
     std::vector<std::string> result;
 
+    if(cmds == json(nullptr)){
+        return result;
+    }
+
     if (!cmds.is_array()) {
         throw std::runtime_error("Expected JSON array");
     }
@@ -118,7 +122,7 @@ std::string BuildState::getLastLayerDigest() const {
     if (layers.empty())
         return "base";   // or base image digest later
 
-    return layers.back().digest;
+    return stripSHA256(layers.back().digest);
 }
 
 
@@ -132,6 +136,7 @@ void FromInstruction::Execute(
     (void)cache_broken;
     
     auto layers = image.getLayers();
+
     for(auto& layer : layers){
         state.addLayer(layer);
     }
@@ -229,7 +234,7 @@ void CopyInstruction::Execute(
     std::uintmax_t file_size = 0;
 
     try {
-        file_size = std::filesystem::file_size(layers_path / digest);
+        file_size = std::filesystem::file_size(layers_path / (digest +".tar"));
         fs::rename(tarPath,layers_path / digest);
     } catch (const fs::filesystem_error& e) {
         std::cerr << "Error  file operation: " << e.what() << std::endl;
@@ -254,18 +259,20 @@ void RunInstruction::Execute(
     
     std::string prev_digest = state.getLastLayerDigest();
     std::string instruction_text = getCmd();
-    std::string cache_key = computeCacheKey(
+    std::string cache_key = stripSHA256(computeCacheKey(
         prev_digest,
         instruction_text,
         state.getWorkdir(),
         state.getEnv(),
         ""
-    );
+    ));
+
+    
 
     // cache hit condition :-
 
     if(!cache_broken && (cache.find(cache_key)!= cache.end())){
-        std::string digest = cache[cache_key];
+        std::string digest = stripSHA256(cache[cache_key]);
 
         if(layerExists(digest)){
             std::cout << "CACHE HIT " << instruction_text << "\n";
@@ -282,13 +289,14 @@ void RunInstruction::Execute(
 
     TempDir temp_dir;
     fs::path tmp  = fs::absolute(temp_dir.get());
+
     fs::path layer_dir = getLayerDir();
 
     auto layers = state.getLayers();
     // for each layer copy and extract tar file.
     for(auto& layer : layers){
 
-        fs::path tar_path = layer_dir / layer.digest;
+        fs::path tar_path = layer_dir / (layer.digest + ".tar");
         // extract tar file :-
         extractTar(tar_path,tmp);
         handleWhiteouts(tmp);
@@ -333,8 +341,17 @@ void RunInstruction::Execute(
     Layer delta_layer; 
     auto digest = encryptSHA256(tarfile);
     delta_layer.digest = digest;
-    fs::rename(tarfile,(layer_dir / (digest + ".tar")));
+    // fs::rename(tarfile,(layer_dir / (digest + ".tar")));
     
+    try {
+        fs::copy_file(tarfile, (layer_dir / (digest + ".tar")),
+                    fs::copy_options::overwrite_existing);
+        fs::remove(tarfile);
+    } catch (const fs::filesystem_error& e) {
+        std::cerr << "Layer move failed: " << e.what() << "\n";
+    }
+
+
     std::uintmax_t size = fs::file_size((layer_dir / (digest + ".tar")));
     delta_layer.size = size;
 

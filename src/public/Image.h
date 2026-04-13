@@ -9,7 +9,7 @@
 
 #include "file_handling.h"
 
-
+std::string stripSHA256(std::string d);
 
 struct Layer{
     std::string digest;  //hash of tar file compressed.
@@ -26,7 +26,7 @@ struct Layer{
 
     static Layer from_json(const nlohmann::json& j){
         Layer l;
-        l.digest = j.at("digest").get<std::string>();
+        l.digest = stripSHA256(j.at("digest").get<std::string>());
         l.size = j.value("size",0);
         l.createdBy = j.value("createdBy","");
         return l;
@@ -99,7 +99,7 @@ class Image{
 Image loadManifest(const std::string& file);
 void saveManifest(Image& i);
 
-std::string stripSha256(std::string d);
+
 
 
 std::string getCurrentTimeISO8601();

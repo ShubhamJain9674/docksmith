@@ -8,7 +8,7 @@ Image::Image(json j){
     name = j.at("name").get<std::string>();
     tag = j.at("tag").get<std::string>();
     
-    digest = stripSha256(j.value("digest",""));
+    digest = stripSHA256(j.value("digest",""));
     created = j.value("created","");
 
     conf = Config::from_json(j.at("config"));
@@ -20,14 +20,19 @@ Image::Image(json j){
 
 Image loadManifest(const std::string& file){
 
-    std::ifstream f(getExecutableDir() / "images" / file);
+    std::string req_file = file; 
+    if (req_file.size() < 5 || req_file.substr(req_file.size() - 5) != ".json") {
+        req_file += ".json";
+    }
+    
+    std::ifstream f(getExecutableDir() / "images" / req_file);
 
     if (!f.is_open()) {
-        std::cerr << "Failed to open file: " << file << "\n";
+        std::cerr << "Failed to open file: " << req_file << "\n";
     }
 
     if (f.peek() == std::ifstream::traits_type::eof()) {
-        std::cerr << "Skipping empty file: " << file << "\n";
+        std::cerr << "Skipping empty file: " << req_file << "\n";
     }
 
     json j;
@@ -60,7 +65,7 @@ json Image::toJson(){
     return j;
 
 }
-std::string stripSha256(std::string d){
+std::string stripSHA256(std::string d){
     if (d.rfind("sha256:", 0) == 0) { // checks prefix
         d = d.substr(7); // remove first 7 characters
     }

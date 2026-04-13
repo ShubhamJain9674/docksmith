@@ -15,16 +15,23 @@ void buildCmd(const std::string& build_tag,const std::string& build_context,bool
 
     if(!checkPath(build_context)){
         std::cerr << "invalid build context\n";
+        return;
     }
 
     if(!checkForDocksmithFile(build_context)){
         std::cerr << "Docksmithfile not found in context\n";
+        return;
     }
 
     fs::path  docksmith_filepath = fs::absolute(build_context) / "Docksmithfile";
     auto instructions = parseDocksmithFile(docksmith_filepath);
+    
 
     if (!instructions.has_value()) {
+        std::cerr << "No instructions found!" << std::endl;
+        return;
+    }
+    if(instructions.value().size() == 0){
         std::cerr << "No instructions found!" << std::endl;
         return;
     }
