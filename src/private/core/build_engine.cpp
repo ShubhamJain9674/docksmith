@@ -24,11 +24,22 @@ static void copy_dir_to_tmp(const std::string& tmp_path,std::string from,std::st
     }
 
     fs::path relDest = fs::path(dest).lexically_normal();
+
+
+    fs::path absDest;
+
     if (relDest.is_absolute()) {
-        throw std::runtime_error("Invalid destination path: must not be absolute");
+        // absolute → relative to container root
+        absDest = staging / relDest.relative_path();
+    } else {
+        // relative → relative to staging root (or WORKDIR later)
+        absDest = staging / relDest;
     }
 
-    fs::path absDest = fs::weakly_canonical(staging / relDest);
+    
+    // fs::path absDest = fs::weakly_canonical(staging / relDest);
+    // fs::path absDest = (staging / relDest).lexically_normal();
+
     std::string stagingStr = staging.string();
     if (absDest.string().find(stagingStr) != 0) {
         throw std::runtime_error("Destination escapes staging directory");
@@ -185,7 +196,20 @@ void CopyInstruction::Execute(
     
     std::string prev_digest = state.getLastLayerDigest();
     std::string instruction_text = "COPY " + from + " " + dest;
-    std::string source_hash = hashDirectory(from);
+    // std::string source_hash = hashDirectory(from);
+    fs::path absSrc = fs::weakly_canonical(getContextDir() / from);
+
+    std::string source_hash;
+
+    if (fs::is_directory(absSrc)) {
+        source_hash = hashDirectory(absSrc);
+    } else if (fs::is_regular_file(absSrc)) {
+        source_hash = stripSHA256(encryptSHA256(absSrc));
+    } else {
+        throw std::runtime_error("Invalid COPY source");
+    }
+
+
     std::string cache_key = computeCacheKey(
         prev_digest,
         instruction_text,
@@ -237,8 +261,8 @@ void CopyInstruction::Execute(
     std::uintmax_t file_size = 0;
 
     try {
+        fs::rename(tarPath,layers_path / (digest + ".tar"));
         file_size = std::filesystem::file_size(layers_path / (digest +".tar"));
-        fs::rename(tarPath,layers_path / digest);
     } catch (const fs::filesystem_error& e) {
         std::cerr << "Error  file operation: " << e.what() << std::endl;
     }

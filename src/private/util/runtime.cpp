@@ -15,7 +15,10 @@ static int containerMain(void* arg) {
     close(a->pipe_fd[1]);
 
     char buf;
-    read(a->pipe_fd[0], &buf, 1);
+    if (read(a->pipe_fd[0], &buf, 1) == -1) {
+        perror("read failed");
+        return 1;
+    }
     close(a->pipe_fd[0]);
 
     // isolate mounts
@@ -150,7 +153,10 @@ bool runInRootLinux(
 {
 
     int pipefd[2];
-    pipe(pipefd);
+    if(pipe(pipefd) == -1){
+        perror("pipe failed");
+        return false;
+    }
 
     ContainerArgs args { rootDir, workDir, &envVars, &commands,{pipefd[0], pipefd[1]} };
 
@@ -192,7 +198,9 @@ bool runInRootLinux(
         return false;
     }
 
-    write(pipefd[1], "x", 1);
+    if (write(pipefd[1], "x", 1) == -1) {
+        perror("write failed");
+    }
     close(pipefd[1]);   
 
     int status;

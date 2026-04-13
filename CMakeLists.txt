@@ -10,7 +10,7 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 # Compiler flags
-set(CMAKE_CXX_FLAGS_DEBUG "-g -O2 -Wall -Wextra -Werror")
+set(CMAKE_CXX_FLAGS_DEBUG "-g -O2 -Wall -Wextra -Werror=unused-result")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native -DNDEBUG")
 
 # OpenMP (since you're using it)
