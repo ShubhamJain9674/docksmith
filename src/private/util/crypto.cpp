@@ -47,7 +47,9 @@ std::string encryptSHA256(const std::filesystem::path& filePath) {
 
     // Convert to hexadecimal string with "sha256:" prefix
     std::stringstream shastr;
-    shastr << "sha256:" << std::hex << std::setfill('0');
+    // shastr << "sha256:" << std::hex << std::setfill('0');
+    shastr << std::hex << std::setfill('0');
+
     for (unsigned int i = 0; i < result_len; ++i) {
         shastr << std::setw(2) << (int)result[i];
     }
@@ -75,7 +77,10 @@ std::string sha256String(const std::string& data) {
     EVP_MD_CTX_free(mdctx);
 
     std::stringstream ss;
-    ss << "sha256:" << std::hex << std::setfill('0');
+    ss << std::hex << std::setfill('0');
+    // ss << "sha256:" << std::hex << std::setfill('0');
+
+
 
     for (unsigned int i = 0; i < len; ++i) {
         ss << std::setw(2) << (int)result[i];

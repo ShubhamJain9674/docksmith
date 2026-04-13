@@ -99,7 +99,7 @@ class Image{
 Image loadManifest(const std::string& file);
 void saveManifest(Image& i);
 
-
+std::string stripSha256(std::string d);
 
 
 std::string getCurrentTimeISO8601();

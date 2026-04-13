@@ -214,6 +214,10 @@ void rmiCmd(const std::string& rmi_image){
 
     // collect used layers
     auto target_layers = i.getLayers();
+
+    
+
+
     std::unordered_set<std::string> used_layers;
 
     for (auto& dir : fs::directory_iterator(image_dir)) {
@@ -234,14 +238,13 @@ void rmiCmd(const std::string& rmi_image){
     }
 
 
+
     // delete unused layers.
     for (auto& layer : target_layers) {
         std::string digest = layer.digest;
         if (used_layers.count(digest) == 0) {
-            fs::path layer_path = getLayerDir() / digest;
-
+            fs::path layer_path = getLayerDir() / (digest + ".tar");
             if (fs::exists(layer_path)) {
-                std::cout << "Deleting layer: " << digest << "\n";
                 fs::remove(layer_path);
             }
         } else {

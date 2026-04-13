@@ -7,7 +7,8 @@ Image::Image(json j){
     
     name = j.at("name").get<std::string>();
     tag = j.at("tag").get<std::string>();
-    digest = j.value("digest","");
+    
+    digest = stripSha256(j.value("digest",""));
     created = j.value("created","");
 
     conf = Config::from_json(j.at("config"));
@@ -39,14 +40,14 @@ json Image::toJson(){
     json j;
     j["name"] = name;
     j["tag"] = tag;
-    j["digest"] = digest;
+    j["digest"] = "sha256:"+digest;
     j["created"] = created;
     j["config"] = conf.to_json();
 
     json arr = json::array();
     for (const auto& l : layers) {
         arr.push_back({
-            {"digest", l.digest},
+            {"digest", "sha256:"+l.digest},
             {"size", l.size},
             {"createdBy", l.createdBy}
         });
@@ -58,6 +59,12 @@ json Image::toJson(){
     // std::cout << j.dump() << std::endl;
     return j;
 
+}
+std::string stripSha256(std::string d){
+    if (d.rfind("sha256:", 0) == 0) { // checks prefix
+        d = d.substr(7); // remove first 7 characters
+    }
+    return d;
 }
 
 void saveManifest(Image& i){

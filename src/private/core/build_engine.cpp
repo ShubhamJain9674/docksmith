@@ -226,7 +226,7 @@ void CopyInstruction::Execute(
     }
 
     std::string digest = encryptSHA256(tarPath);
-    std::uintmax_t file_size;
+    std::uintmax_t file_size = 0;
 
     try {
         file_size = std::filesystem::file_size(layers_path / digest);

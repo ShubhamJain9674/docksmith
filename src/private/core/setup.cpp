@@ -161,7 +161,7 @@ void storeAlpineLayer(Layer l,std::string name){
     const auto dest_path = exe_dir / "layers" / (l.digest + ".tar");
 
     
-    fs::copy_file(source_alpine_path,dest_path);
+    fs::copy_file(source_alpine_path,dest_path,fs::copy_options::overwrite_existing);
 
     try{
         std::cout << "layer created and stored\n";
