@@ -110,6 +110,8 @@ void handleWhiteouts(const std::filesystem::path& rootfs);
 struct FileInfo {
     std::filesystem::file_time_type mtime;
     uintmax_t size;
+    bool isSymlink = false;
+    std::string symlinkTarget = "";
 };
 
 

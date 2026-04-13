@@ -129,7 +129,7 @@ void handleWhiteouts(const fs::path& rootfs) {
 void extractTar(const std::filesystem::path& tarPath, const std::filesystem::path& dest){
     std::string cmd =
         "tar -xf " + tarPath.string() +
-        " -C " + dest.string();
+        " --strip-components=1 -C " + dest.string();
 
     int res = system(cmd.c_str());
     if (res != 0) {
@@ -140,17 +140,33 @@ void extractTar(const std::filesystem::path& tarPath, const std::filesystem::pat
 Snapshot snapshotMtimes(const fs::path& rootfs) {
     Snapshot snap;
 
-    for (auto& entry : fs::recursive_directory_iterator(rootfs)) {
-        if (!entry.is_regular_file())
+    for (auto& entry : fs::recursive_directory_iterator(rootfs,
+        fs::directory_options::skip_permission_denied
+    )) {
+
+        if (!entry.is_regular_file() && !entry.is_symlink())
             continue;
 
         // Get path relative to rootfs
         fs::path relPath = fs::relative(entry.path(), rootfs);
 
-        snap[relPath.string()] = {
-            fs::last_write_time(entry.path()),
-            fs::file_size(entry.path())
-        };
+        FileInfo info;
+        if(entry.is_symlink()){
+            // symlinks have no meaningful mtime/size for change detection
+            // store the target as a marker instead
+
+            info.mtime = fs::file_time_type{};
+            info.size = 0;
+            info.symlinkTarget = fs::read_symlink(entry.path().string());
+            info.isSymlink = true;
+        }
+        else{
+            info.mtime = fs::last_write_time(entry.path());
+            info.size = fs::file_size(entry.path());
+            info.isSymlink = false;
+        }
+
+        snap[relPath.string()] = info;
     }
 
     return snap;

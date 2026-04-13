@@ -73,11 +73,14 @@ static std::vector<fs::path> getDeltaFiles(Snapshot& beforeSnapshot,Snapshot& af
         } else {
             const auto& beforeInfo = it->second;
 
-            if (beforeInfo.mtime != afterInfo.mtime ||
-                beforeInfo.size  != afterInfo.size) {
-                // MODIFIED file
+            if (beforeInfo.isSymlink && afterInfo.isSymlink) {
+                if (beforeInfo.symlinkTarget != afterInfo.symlinkTarget)
+                    delta.push_back(path);
+            } else if (beforeInfo.mtime != afterInfo.mtime ||
+                    beforeInfo.size  != afterInfo.size) {
                 delta.push_back(path);
             }
+
         }
     }
 
@@ -308,7 +311,13 @@ void RunInstruction::Execute(
     auto beforeSnapshot = snapshotMtimes(tmp);
     // std::vector<std::string> commands = parseCmds(state.getCmds());
 
-    runInRootLinux(tmp,workdir,state.getEnv(),cmd);
+    bool success = runInRootLinux(tmp,workdir,state.getEnv(),cmd);
+
+
+    if (!success) {
+        std::cerr << "RUN instruction failed\n";
+        throw std::runtime_error("Build failed");
+    }
 
     auto afterSnapshot = snapshotMtimes(tmp);
 
