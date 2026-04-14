@@ -6,21 +6,21 @@ namespace fs = std::filesystem;
 
 
 
-static bool checkLayersCache(){
-    const fs::path cache = getExecutableDir() / "cache" / "layers.json";
-    return fs::exists(cache);
-}
+// static bool checkLayersCache(){
+//     const fs::path cache = getExecutableDir() / "cache" / "layers.json";
+//     return fs::exists(cache);
+// }
 
-static void createLayersCache(){
-    const fs::path cache = getExecutableDir() / "cache" / "layers.json";
-    std::ofstream f(cache);
+// static void createLayersCache(){
+//     const fs::path cache = getExecutableDir() / "cache" / "layers.json";
+//     std::ofstream f(cache);
 
-    if(!f.is_open()){
-        std::cerr << "failed to create image cache file\n";
-    }
+//     if(!f.is_open()){
+//         std::cerr << "failed to create image cache file\n";
+//     }
 
-    f.close();
-}
+//     f.close();
+// }
 
 
 void initDocksmithDir(){
@@ -45,14 +45,14 @@ void initDocksmithDir(){
     if(!fs::exists(cache)){
         std::cout << "creating cache dir!\n"; 
         fs::create_directory(cache);
-        createLayersCache();
+        // createLayersCache();
     }
-    else{
-        if(!checkLayersCache()){
-            createLayersCache();
-        }
+    // else{
+    //     if(!checkLayersCache()){
+    //         createLayersCache();
+    //     }
 
-    }
+    // }
 
     if(!fs::exists(base_image)){
         std::cout << "creating base_image dir!\n";

@@ -58,7 +58,7 @@ static int containerMain(void* arg) {
     std::string wd = a->workDir.empty() ? "/" : a->workDir.string();
 
 
-    std::cout << "wd passed to chdir : " << wd << "\n";
+    // std::cout << "wd passed to chdir : " << wd << "\n";
     if (chdir(wd.c_str()) == -1) {
         perror("chdir to workdir failed");
         return 1;
@@ -77,9 +77,9 @@ static int containerMain(void* arg) {
 
     
     // Debug: check what we can actually see
-    fprintf(stderr, "cwd = ");
-    char cwd[256];
-    if (getcwd(cwd, sizeof(cwd))) fprintf(stderr, "%s\n", cwd);
+    // fprintf(stderr, "cwd = ");
+    // char cwd[256];
+    // if (getcwd(cwd, sizeof(cwd))) fprintf(stderr, "%s\n", cwd);
     
     // struct stat st;
     // fprintf(stderr, "stat /bin/sh: %s\n", stat("/bin/sh", &st) == 0 ? "OK" : strerror(errno));
@@ -93,9 +93,16 @@ static int containerMain(void* arg) {
     
     std::vector<const char*> argv = { "/bin/sh", "-c", cmd.c_str(), nullptr };
 
-    struct stat rst;
-    stat("/", &rst);
-    fprintf(stderr, "/ mode=%o uid=%d gid=%d\n", rst.st_mode & 0777, rst.st_uid, rst.st_gid);
+    // struct stat rst;
+    // stat("/", &rst);
+    // fprintf(stderr, "/ mode=%o uid=%d gid=%d\n", rst.st_mode & 0777, rst.st_uid, rst.st_gid);
+
+    // fprintf(stderr, "rootfs at: %s\n", a->rootDir.c_str());
+    // sleep(60);
+
+    // for (auto& p : std::filesystem::directory_iterator(cwd))
+    //     std::cerr << "  " << p.path() << "\n";
+
 
     execvpe("/bin/sh",
             const_cast<char* const*>(argv.data()),
@@ -109,8 +116,13 @@ static int containerMain(void* arg) {
     // execvpe("/bin/busybox", 
     //     const_cast<char* const*>(argv.data()),
     //     const_cast<char* const*>(env.data()));
+    
+    
+
 
     perror("exec failed");
+
+
     _exit(1);
 }
 

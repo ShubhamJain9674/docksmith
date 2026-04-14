@@ -156,11 +156,11 @@ class RunInstruction : public Instruction{
         ) override;
 
         std::string getCmd(){
-            std::string cmd = "";
+            std::string l_cmd = "";
             for(auto str : cmd){
-                cmd += str;
+                l_cmd += str;
             }
-            return cmd;
+            return l_cmd;
         }
 
     private:

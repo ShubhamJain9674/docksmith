@@ -104,6 +104,7 @@ class TempDir{
 
 
 void extractTar(const std::filesystem::path& tarPath, const std::filesystem::path& dest);
+void extractDeltaTar(const std::filesystem::path& tarPath, const std::filesystem::path& dest);
  
 void handleWhiteouts(const std::filesystem::path& rootfs);
 

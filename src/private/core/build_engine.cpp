@@ -72,33 +72,35 @@ inline void createWorkDir(fs::path& dir){
 }
 
 
-
-static std::vector<fs::path> getDeltaFiles(Snapshot& beforeSnapshot,Snapshot& afterSnapshot){
-
+static std::vector<fs::path> getDeltaFiles(Snapshot& beforeSnapshot, Snapshot& afterSnapshot) {
     std::vector<fs::path> delta;
 
     for (const auto& [path, afterInfo] : afterSnapshot) {
         auto it = beforeSnapshot.find(path);
 
+        bool changed = false;
         if (it == beforeSnapshot.end()) {
-            // NEW file
-            delta.push_back(path);
+            changed = true;
         } else {
             const auto& beforeInfo = it->second;
-
             if (beforeInfo.isSymlink && afterInfo.isSymlink) {
-                if (beforeInfo.symlinkTarget != afterInfo.symlinkTarget)
-                    delta.push_back(path);
-            } else if (beforeInfo.mtime != afterInfo.mtime ||
-                    beforeInfo.size  != afterInfo.size) {
-                delta.push_back(path);
+                changed = beforeInfo.symlinkTarget != afterInfo.symlinkTarget;
+            } else {
+                changed = beforeInfo.mtime != afterInfo.mtime ||
+                          beforeInfo.size  != afterInfo.size;
             }
+        }
 
+        if (changed) {
+            // normalize to ./path so tar has consistent prefixes
+            std::string normalized = path;
+            if (normalized.substr(0, 2) != "./")
+                normalized = "./" + normalized;
+            delta.push_back(normalized);
         }
     }
 
     return delta;
-
 }
 static std::vector<fs::path> getDeletedFiles(Snapshot& beforeSnapshot,Snapshot& afterSnapshot){
     std::vector<std::filesystem::path> deleted;
@@ -145,7 +147,7 @@ std::string BuildState::getLastLayerDigest() const {
 
 
 
-Layer buildLayer(
+std::optional<Layer> buildLayer(
     BuildState& state,
     std::vector<std::string>& cmds
 ) {
@@ -155,6 +157,9 @@ Layer buildLayer(
 
     for (auto& layer : state.getLayers()) {
         fs::path tar_path = layer_dir / (layer.digest + ".tar");
+        // fprintf(stderr, "extracting layer: %s exists=%d\n", 
+        //     tar_path.c_str(),
+        //     fs::exists(tar_path));
         extractTar(tar_path, tmp);
         handleWhiteouts(tmp);
     }
@@ -170,9 +175,9 @@ Layer buildLayer(
         wd = wd.substr(1);  // strip leading /
 
 
-    fprintf(stderr, "workdir from state: '%s'\n", state.getWorkdir().c_str());
+    // fprintf(stderr, "workdir from state: '%s'\n", state.getWorkdir().c_str());
     fs::path workdir = tmp / wd;
-    fprintf(stderr, "workdir full path: '%s'\n", workdir.c_str());    
+    // fprintf(stderr, "workdir full path: '%s'\n", workdir.c_str());    
 
 
 
@@ -190,8 +195,20 @@ Layer buildLayer(
     if (!success)
         throw std::runtime_error("Build failed");
 
+    // fprintf(stderr, "=== HOST VIEW OF /app AFTER RUN ===\n");
+    // for (auto& p : fs::directory_iterator(tmp / "app")) {
+    //     fprintf(stderr, "  %s exists=%d\n", 
+    //         p.path().c_str(),
+    //         fs::exists(p.path()));
+    // }
+
     auto afterSnapshot = snapshotMtimes(tmp);
     auto delta = getDeltaFiles(beforeSnapshot, afterSnapshot);
+    // fprintf(stderr, "=== DELTA ===\n");
+    // for (auto& p : delta)
+        // fprintf(stderr, "  %s\n", p.c_str());
+    // fprintf(stderr, "=== END DELTA ===\n");
+
     auto deleted = getDeletedFiles(beforeSnapshot, afterSnapshot);
 
     std::vector<std::string> files;
@@ -207,7 +224,18 @@ Layer buildLayer(
     std::sort(files.begin(), files.end());
 
     fs::path tarfile = fs::absolute("/tmp/layer.tar");
+    
+    if (files.empty()) {
+        // no changes, don't create a new layer
+        return std::nullopt;  // return empty layer or handle in caller
+    }
+
     createTarFromDelta(tmp.string(), tarfile.string(), files);
+
+    // fprintf(stderr, "=== TAR CONTENTS ===\n");
+    std::string list_cmd = "tar -tvf /tmp/layer.tar 2>&1";
+    system(list_cmd.c_str());
+    // fprintf(stderr, "=== END TAR ===\n");
 
     Layer new_layer;
     new_layer.digest = encryptSHA256(tarfile);
@@ -248,14 +276,39 @@ void WorkingdirInstruction::Execute(
     CacheIndex& cache,
     bool& cache_broken
 ){
-    (void)cache;
-    (void)cache_broken;
+    std::string prev_digest = state.getLastLayerDigest();
+    std::string cache_key = stripSHA256(computeCacheKey(
+        prev_digest,
+        "WORKDIR " + dir,
+        state.getWorkdir(),
+        state.getEnv(),
+        ""
+    ));
+    // fprintf(stderr, "looking up key: '%s'\n", cache_key.c_str());
+    // fprintf(stderr, "cache size: %zu\n", cache.size());
+    // for (auto& [k,v] : cache)
+    //     fprintf(stderr, "  index key: '%s'\n", k.c_str());
 
-    state.setWorkdir(dir);
+    if (!cache_broken && cache.find(cache_key) != cache.end()) {
+        std::string digest = stripSHA256(cache[cache_key]);
+        if (layerExists(digest)) {
+            std::cout << "CACHE HIT WORKDIR " << dir << "\n";
+            Layer l; l.digest = digest;
+            state.addLayer(l);
+            state.setWorkdir(dir);
+            return;
+        }
+    }
+
     cache_broken = true;
     std::vector<std::string> mkdirCmd = { "mkdir -p " + dir };
-    Layer l = buildLayer(state, mkdirCmd);  
-    state.addLayer(l);
+    auto l = buildLayer(state, mkdirCmd);
+
+    if (l.has_value()) {
+        state.addLayer(l.value());
+        cache[cache_key] = "sha256:" + l.value().digest;
+    }
+    state.setWorkdir(dir);
 }
 
 
@@ -303,19 +356,28 @@ void CopyInstruction::Execute(
         throw std::runtime_error("Invalid COPY source");
     }
 
-
-    std::string cache_key = computeCacheKey(
+    // fprintf(stderr, "prev_digest: %s\n", prev_digest.c_str());
+    std::string cache_key = stripSHA256(computeCacheKey(
         prev_digest,
         instruction_text,
         state.getWorkdir(),
         state.getEnv(),
         source_hash
-    );
+    ));
+    // fprintf(stderr, "cache_key: %s\n", cache_key.c_str());
+
+    // fprintf(stderr, "looking up key: '%s'\n", cache_key.c_str());
+    // fprintf(stderr, "cache size: %zu\n", cache.size());
+    // for (auto& [k,v] : cache)
+    //     fprintf(stderr, "  index key: '%s'\n", k.c_str());
 
 
     //cache hit
     if(!cache_broken && (cache.find(cache_key)!=cache.end()) ){
-        std::string digest = cache[cache_key];
+        std::string digest = stripSHA256(cache[cache_key]);
+        // fprintf(stderr, "cache hit candidate: %s exists=%d\n", 
+        //     digest.c_str(), layerExists(digest));
+
         if(layerExists(digest)){
             std::cout << "CACHE HIT " << instruction_text << "\n";
             Layer l;
@@ -366,6 +428,8 @@ void CopyInstruction::Execute(
     l.size = file_size;
     l.createdBy = "COPY " + from + dest;
     state.addLayer(l);
+    cache[cache_key] = "sha256:" + l.digest;
+    saveCache(cache);
 
     std::cout << "cache miss !" << std::endl;
 
@@ -380,6 +444,8 @@ void RunInstruction::Execute(
     
     std::string prev_digest = state.getLastLayerDigest();
     std::string instruction_text = getCmd();
+    // std::cout << "get cmd() function check : " << getCmd() << "\n";
+    // fprintf(stderr, "prev_digest: %s\n", prev_digest.c_str());
     std::string cache_key = stripSHA256(computeCacheKey(
         prev_digest,
         instruction_text,
@@ -387,13 +453,20 @@ void RunInstruction::Execute(
         state.getEnv(),
         ""
     ));
-
+    // fprintf(stderr, "cache_key: %s\n", cache_key.c_str());
     
-
+    // fprintf(stderr, "looking up key: '%s'\n", cache_key.c_str());
+    // fprintf(stderr, "cache size: %zu\n", cache.size());
+    // for (auto& [k,v] : cache)
+    //     fprintf(stderr, "  index key: '%s'\n", k.c_str());
+    
     // cache hit condition :-
 
     if(!cache_broken && (cache.find(cache_key)!= cache.end())){
         std::string digest = stripSHA256(cache[cache_key]);
+
+        // fprintf(stderr, "cache hit candidate: %s exists=%d\n", 
+        //     digest.c_str(), layerExists(digest));
 
         if(layerExists(digest)){
             std::cout << "CACHE HIT " << instruction_text << "\n";
@@ -408,11 +481,18 @@ void RunInstruction::Execute(
     cache_broken = true;
 
 
-    Layer delta_layer = buildLayer(state,cmd);
+    auto delta_layer = buildLayer(state,cmd);
 
-    delta_layer.createdBy = std::string("RUN ") + getCmd();
 
-    state.addLayer(delta_layer);
+
+    if(delta_layer.has_value()){
+        delta_layer.value().createdBy = std::string("RUN ") + getCmd();
+        state.addLayer(delta_layer.value());
+        cache[cache_key] = "sha256:" + delta_layer.value().digest;
+        saveCache(cache);
+    }else{
+        cache[cache_key] = "sha256:" + prev_digest;
+    }
 
     std::cout << "cache miss!" << std::endl;
 
@@ -479,7 +559,6 @@ Image BuildEngine::Build(std::vector<json>& Instructions,
     img.setTag(tag);
     img.setCreated(getCurrentTimeISO8601());
 
-
     Config conf;
     conf.env = bs.env;
     conf.cmds = parseCmds(bs.cmd);
@@ -488,7 +567,8 @@ Image BuildEngine::Build(std::vector<json>& Instructions,
     img.setConfig(conf);
 
     for(auto layer : bs.layers){
-        img.addLayer(layer);
+        if(!layer.digest.empty())
+            img.addLayer(layer);
     }
 
     return img;

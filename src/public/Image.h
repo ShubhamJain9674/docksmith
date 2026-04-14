@@ -35,7 +35,7 @@ struct Layer{
 };
 
 inline bool layerExists(const std::string& digest) {
-    std::filesystem::path p = getLayerDir() / digest;
+    std::filesystem::path p = getLayerDir() / (digest+".tar");
     return std::filesystem::exists(p);
 }
 

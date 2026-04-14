@@ -137,6 +137,13 @@ void extractTar(const std::filesystem::path& tarPath, const std::filesystem::pat
     }
 }
 
+void extractDeltaTar(const std::filesystem::path& tarPath, const std::filesystem::path& dest) {
+    std::string cmd = "tar -xf " + tarPath.string() + " -C " + dest.string();
+    int res = system(cmd.c_str());
+    if (res != 0)
+        throw std::runtime_error("tar extraction failed");
+}
+
 Snapshot snapshotMtimes(const fs::path& rootfs) {
     Snapshot snap;
 
@@ -180,13 +187,17 @@ Snapshot snapshotMtimes(const fs::path& rootfs) {
 }
 
 
+
+
+
 void createTarFromDelta(
     const std::string& rootfs,
     const std::string& tarPath,
     const std::vector<std::string>& files
 ) {
     std::string cmd =
-        "tar --sort=name "
+        "tar --no-recursion "
+        "--sort=name "
         "--mtime='UTC 1970-01-01' "
         "--owner=0 --group=0 --numeric-owner "
         "-cf " + tarPath +
@@ -202,6 +213,8 @@ void createTarFromDelta(
     for (const auto& f : files) {
         fprintf(pipe, "%s\n", f.c_str());
     }
+
+    
 
     int status = pclose(pipe);
 
