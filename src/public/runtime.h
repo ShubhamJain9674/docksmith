@@ -26,5 +26,6 @@ bool runInRootLinux(
     std::filesystem::path rootDir,
     std::filesystem::path workDir,
     std::vector<std::string>& envVars,
-    std::vector<std::string>& commands
+    std::vector<std::string>& commands,
+    bool execDirect = false
 );

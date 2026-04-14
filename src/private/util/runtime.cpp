@@ -7,6 +7,7 @@ struct ContainerArgs {
     std::filesystem::path workDir;
     std::vector<std::string>* envVars;
     std::vector<std::string>* commands;
+    bool execDirect;
     int pipe_fd[2];
 };
 
@@ -102,11 +103,34 @@ static int containerMain(void* arg) {
 
     // for (auto& p : std::filesystem::directory_iterator(cwd))
     //     std::cerr << "  " << p.path() << "\n";
+    if(a->execDirect) {
+        std::vector<const char*> argv;
+        for (auto& c : *(a->commands)){
+            argv.push_back(c.c_str());
+        }
+        argv.push_back(nullptr);
+        std::string exe = a->commands->at(0);
+        if(exe.find('/') == std::string::npos)
+            exe = "/bin/" + exe;  // "sh" to "/bin/sh"
+        execvpe(exe.c_str(),
+                const_cast<char* const*>(argv.data()),
+                const_cast<char* const*>(env.data()));
+    }else{
+        std::string cmd;
+        for(auto& c : *(a->commands))
+            cmd += c + " ";
+        
+        std::vector<const char*> argv = { "/bin/sh","-c",cmd.c_str(),nullptr };
+        execvpe("/bin/sh",
+                const_cast<char* const*>(argv.data()),
+                const_cast<char* const*>(env.data()));    
+    }
+
+    // execvpe("/bin/sh",
+    //         const_cast<char* const*>(argv.data()),
+    //         const_cast<char* const*>(env.data()));
 
 
-    execvpe("/bin/sh",
-            const_cast<char* const*>(argv.data()),
-            const_cast<char* const*>(env.data()));
 
 
     // workaround
@@ -181,7 +205,8 @@ bool runInRootLinux(
     std::filesystem::path rootDir,
     std::filesystem::path workDir,
     std::vector<std::string>& envVars,
-    std::vector<std::string>& commands
+    std::vector<std::string>& commands,
+    bool execDirect
 )
 {
 
@@ -191,7 +216,7 @@ bool runInRootLinux(
         return false;
     }
 
-    ContainerArgs args { rootDir, workDir, &envVars, &commands,{pipefd[0], pipefd[1]} };
+    ContainerArgs args { rootDir, workDir, &envVars, &commands,execDirect,{pipefd[0], pipefd[1]} };
 
     const int STACK_SIZE = 1024 * 1024;
     std::vector<char> stack(STACK_SIZE);

@@ -126,6 +126,20 @@ void runCmd(const std::string& run_image,
 
         handleWhiteouts(tmp);
     }
+    // after extraction, add debug:
+    fprintf(stderr, "=== ROOTFS ROOT ===\n");
+    for (auto& p : fs::directory_iterator(tmp))
+        fprintf(stderr, "  %s\n", p.path().c_str());
+
+    fprintf(stderr, "=== ROOTFS /app ===\n");
+    for (auto& p : fs::recursive_directory_iterator(tmp / "app"))
+        fprintf(stderr, "  %s\n", p.path().c_str());
+    fprintf(stderr, "=== END ===\n");
+
+    fprintf(stderr, "layers count: %zu\n", layers.size());
+    for (auto& l : layers)
+        fprintf(stderr, "  layer: %s\n", l.digest.c_str());
+
 
     // prepare env :-
     std::vector<std::string> finalEnv;
@@ -156,7 +170,9 @@ void runCmd(const std::string& run_image,
 
     auto workdir = image.getConfig().working_dir;
 
-    bool ok = runInRootLinux(tmp,workdir,finalEnv,finalCmd);
+    bool execDirect = finalCmd.size()  > 1; 
+
+    bool ok = runInRootLinux(tmp,workdir,finalEnv,finalCmd,execDirect);
 
     if(!ok){
         std::cerr << "Container execution failed\n";
@@ -193,74 +209,77 @@ void rmiCmd(const std::string& rmi_image){
     std::cout << "[RMI]\n";
     std::cout << "Removing: " << rmi_image << "\n";
 
-    //implement rmi command:-
-
-    std::string name,tag;
-
+    std::string name, tag;
     auto pos = rmi_image.find(':');
     if (pos == std::string::npos) {
         name = rmi_image;
-        tag = "latest";
+        tag  = "latest";
     } else {
         name = rmi_image.substr(0, pos);
         tag  = rmi_image.substr(pos + 1);
     }
 
-
     const fs::path image_dir = getExecutableDir() / "images";
-    fs::path image_path = image_dir / rmi_image;
 
-    if (!fs::exists(image_dir)) {
-        std::cerr << "Image not found\n";
+    if (!fs::exists(image_dir / (name + ".json"))) {
+        std::cerr << "Image not found: " << name << "\n";
         return;
     }
- 
-    // - load the image json
-    Image i = loadManifest(rmi_image+".json"); 
-    
 
-    // collect used layers
-    auto target_layers = i.getLayers();
+    // load target image
+    Image target = loadManifest(name);
+    auto target_layers = target.getLayers();
 
-    
-
-
+    // collect layers used by all OTHER images
     std::unordered_set<std::string> used_layers;
+    for (auto& entry : fs::directory_iterator(image_dir)) {
+        if (entry.path().extension() != ".json") continue;
+        if (entry.path().stem().string() == name) continue; // skip target
 
-    for (auto& dir : fs::directory_iterator(image_dir)) {
-        if (!dir.is_directory()) continue;
-
-        for (auto& file : fs::directory_iterator(dir.path())) {
-            if (file.path() == image_path) continue; // skip target image
-
-            if (file.path().extension() != ".json") continue;
-
-            json other;
-            std::ifstream(file.path()) >> other;
-
-            for (auto& l : other["layers"]) {
-                used_layers.insert(l["digest"]);
-            }
+        try {
+            Image other = loadManifest(entry.path().stem().string());
+            for (auto& l : other.getLayers())
+                used_layers.insert(l.digest);
+        } catch (...) {
+            continue;
         }
     }
 
+    // collect digests being removed (for cache cleanup)
+    std::unordered_set<std::string> removed_digests;
 
-
-    // delete unused layers.
+    // delete unused layers
     for (auto& layer : target_layers) {
-        std::string digest = layer.digest;
-        if (used_layers.count(digest) == 0) {
-            fs::path layer_path = getLayerDir() / (digest + ".tar");
+        if (used_layers.count(layer.digest)) {
+            std::cout << "Keeping shared layer: " << layer.digest << "\n";
+        } else {
+            fs::path layer_path = getLayerDir() / (layer.digest + ".tar");
             if (fs::exists(layer_path)) {
                 fs::remove(layer_path);
+                std::cout << "Removed layer: " << layer.digest << "\n";
             }
-        } else {
-            std::cout << "Skipping shared layer: " << digest << "\n";
+            removed_digests.insert(layer.digest);
         }
     }
 
-    //delete the json file
+    // clean up cache entries that reference removed layers
+    CacheIndex cache = loadCache();
+    bool cache_dirty = false;
 
-    deleteJsonFile(i.getName());
+    for (auto it = cache.begin(); it != cache.end(); ) {
+        std::string digest = stripSHA256(it->second);
+        if (removed_digests.count(digest)) {
+            it = cache.erase(it);
+            cache_dirty = true;
+        } else {
+            ++it;
+        }
+    }
 
+    if (cache_dirty)
+        saveCache(cache);
+
+    // delete the image manifest
+    deleteJsonFile(name);
+    std::cout << "Removed image: " << name << "\n";
 }
