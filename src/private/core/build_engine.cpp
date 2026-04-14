@@ -165,7 +165,9 @@ std::optional<Layer> buildLayer(
     }
 
     std::string chmod_cmd = "chmod 755 " + tmp.string();
-    system(chmod_cmd.c_str());
+    if(system(chmod_cmd.c_str()) == -1){
+        std::cerr << "WARNING :system cmd failed ! : " << chmod_cmd.c_str() << std::endl;
+    }
 
 
     // fs::path workdir = tmp / state.getWorkdir();
@@ -186,7 +188,9 @@ std::optional<Layer> buildLayer(
     if (!fs::exists(workdir)) {
         // create it on host with a shell command so permissions aren't an issue
         std::string cmd = "mkdir -p " + workdir.string();
-        system(cmd.c_str());
+        if(system(cmd.c_str()) == -1){
+            std::cerr << "WARNING : system cmd failed! : " << cmd.c_str() << std::endl; 
+        }
     }
 
     auto beforeSnapshot = snapshotMtimes(tmp);
@@ -234,7 +238,9 @@ std::optional<Layer> buildLayer(
 
     // fprintf(stderr, "=== TAR CONTENTS ===\n");
     std::string list_cmd = "tar -tvf /tmp/layer.tar 2>&1";
-    system(list_cmd.c_str());
+    if(system(list_cmd.c_str()) == -1){
+        std::cerr << "WARNING : system cmd failed : " << list_cmd.c_str() << std::endl;
+    }
     // fprintf(stderr, "=== END TAR ===\n");
 
     Layer new_layer;

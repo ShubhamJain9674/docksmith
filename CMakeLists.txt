@@ -9,6 +9,7 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Debug)
 endif()
 
+
 # Compiler flags
 set(CMAKE_CXX_FLAGS_DEBUG "-g -O2 -Wall -Wextra -Werror=unused-result")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -march=native -DNDEBUG")
@@ -39,6 +40,13 @@ add_executable(docksmith ${SOURCES})
 
 # Include directories
 target_include_directories(docksmith PRIVATE include src/public)
+
+target_compile_options(docksmith PRIVATE
+    -Wall
+    -Wextra
+    -Werror=unused-result
+)
+
 
 # Link OpenMP
 if(OpenMP_CXX_FOUND)
