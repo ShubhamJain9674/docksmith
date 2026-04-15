@@ -75,7 +75,7 @@ void initDocksmithDir(){
             auto digest = calculateBaseLinuxDigest();
             auto layer = createBaseLinuxLayer(digest,size);
             
-            saveBaseLinuxImage(digest,layer);
+            saveBaseLinuxImage(layer);
             storeAlpineLayer(layer,req_file);
 
         }
@@ -114,16 +114,21 @@ std::string calculateBaseLinuxDigest(){
 
 }
 
-void saveBaseLinuxImage(std::string digest,Layer l){
+void saveBaseLinuxImage(Layer l){
 
     Image base;
     
     base.setName("AlpineLinux");
     base.setTag("Latest");
-    base.setDigest(digest);
     base.addLayer(l);
+    base.setCreated(getCurrentTimeISO8601());
+    
+    auto data = base.toJson().dump();
+    auto digest = sha256String(data);
+    base.setDigest(digest);
 
     saveManifest(base);
+
 }
 
 

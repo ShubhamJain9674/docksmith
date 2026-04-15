@@ -6,6 +6,7 @@
 #include <chrono>
 #include <iomanip>
 #include <sstream>
+#include <cmath>
 
 #include "file_handling.h"
 
@@ -38,6 +39,8 @@ inline bool layerExists(const std::string& digest) {
     std::filesystem::path p = getLayerDir() / (digest+".tar");
     return std::filesystem::exists(p);
 }
+
+
 
 struct Config{
     std::vector<std::string> env;
@@ -99,7 +102,8 @@ class Image{
 Image loadManifest(const std::string& file);
 void saveManifest(Image& i);
 
-
+size_t calculateImageSize(Image& i);
+std::string getImageSizeFormatted(Image& i);
 
 
 std::string getCurrentTimeISO8601();

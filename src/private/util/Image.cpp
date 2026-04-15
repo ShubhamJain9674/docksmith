@@ -72,6 +72,7 @@ std::string stripSHA256(std::string d){
     return d;
 }
 
+
 void saveManifest(Image& i){
 
     json j = i.toJson();
@@ -87,6 +88,47 @@ void saveManifest(Image& i){
     f.close();
 }
 
+size_t calculateImageSize(Image& i){
+    size_t size = 0;
+    for(auto& layer : i.getLayers()){
+        size += layer.size;
+    }
+    return size;
+}
+
+std::string getImageSizeFormatted(Image& i){
+
+    float size = calculateImageSize(i);
+
+    auto round = [](float value){
+        return std::round(value * 1000) / 1000.0;
+    };
+
+    auto format = [](std::string s){
+        return s.substr(0,s.find('.') + 3);
+    };
+
+    if(size >= 1000000000){
+        size /= 1000000000;
+        size = round(size);
+        return format(std::to_string(size)) + " GB";
+    }
+    else if(size >= 1000000){
+        size /= 1000000;
+        size = round(size);
+        return format(std::to_string(size) ) + " MB";
+    }
+    else if(size > 1000){
+        size /= 1000;
+        size = round(size);
+        return format(std::to_string(size) ) + " KB";
+    }
+    else{
+        return format(std::to_string(size) ) + " B";
+    }
+    return "";
+
+}
 
 std::string getCurrentTimeISO8601() {
     auto now = std::chrono::system_clock::now();

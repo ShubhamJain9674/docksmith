@@ -3,6 +3,20 @@
 using json = nlohmann::json;
 namespace fs = std::filesystem;
 
+
+static std::string formatColumn(const std::string& text, size_t width) {
+    if (text.size() <= width) {
+        return text + std::string(width - text.size(), ' ');
+    }
+
+    // truncate and add ellipsis
+    if (width > 3) {
+        return text.substr(0, width - 3) + "...";
+    }
+
+    return text.substr(0, width); // fallback
+}
+
 void buildCmd(const std::string& build_tag,const std::string& build_context,bool no_cache){
     std::cout << "[BUILD]\n";
     std::cout << "Tag: " << build_tag << "\n";
@@ -187,18 +201,33 @@ void runCmd(const std::string& run_image,
 void imagesCmd() {
     auto images = getAllFilesUnderDir("images", ".json", false);
 
-    std::cout << "NAME\tTAG\tIMAGE ID\tCREATED\n";
+    const int NAME_W = 20;
+    const int ID_W = 15;
+    const int CREATED_W = 25;
+    const int SIZE_W = 13;
 
+    std::cout << BLUE
+              << formatColumn("IMAGE", NAME_W)
+              << formatColumn("ID", ID_W)
+              << formatColumn("CREATED", CREATED_W)
+              << formatColumn("CONTENT SIZE" , SIZE_W)
+              << RESET
+              << "\n";
+
+    
     for (const auto& file : images) {
         
         Image i = loadManifest(file);
         auto id = i.getDigest();
         if(id.size() > 12) id = id.substr(0,12);
 
-        std::cout << i.getName() << "\t"
-                << i.getTag() << "\t"
-                << id << "\t"
-                << i.getCreated() << "\n";
+        std::cout << BLUE
+                  << formatColumn(i.getName()+":"+i.getTag(), NAME_W)
+                  << RESET
+                  << formatColumn(id, ID_W)
+                  << formatColumn(i.getCreated(), CREATED_W)
+                  << formatColumn(getImageSizeFormatted(i),SIZE_W)
+                  << "\n";
 
     } 
 
