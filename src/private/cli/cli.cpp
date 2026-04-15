@@ -263,6 +263,7 @@ void rmiCmd(const std::string& rmi_image){
     }
 
     // load target image
+    
     Image target = loadManifest(name);
     auto target_layers = target.getLayers();
 

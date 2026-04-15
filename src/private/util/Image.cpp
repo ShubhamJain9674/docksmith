@@ -28,11 +28,13 @@ Image loadManifest(const std::string& file){
     std::ifstream f(getExecutableDir() / "images" / req_file);
 
     if (!f.is_open()) {
-        std::cerr << "Failed to open file: " << req_file << "\n";
+        std::cerr << RED <<"Failed to open file: " << req_file << "\n" << RESET;
+        throw std::runtime_error("loading image failed");
     }
 
     if (f.peek() == std::ifstream::traits_type::eof()) {
-        std::cerr << "Skipping empty file: " << req_file << "\n";
+        std::cerr << RED <<"Empty image file: " << req_file << "\n" << RESET;
+        throw std::runtime_error("Image not valid");
     }
 
     json j;

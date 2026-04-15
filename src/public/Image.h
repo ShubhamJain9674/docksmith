@@ -7,8 +7,10 @@
 #include <iomanip>
 #include <sstream>
 #include <cmath>
+#include <stdexcept>
 
 #include "file_handling.h"
+#include "logger.h"
 
 std::string stripSHA256(std::string d);
 

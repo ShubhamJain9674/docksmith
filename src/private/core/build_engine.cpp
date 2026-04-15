@@ -394,7 +394,7 @@ void CopyInstruction::Execute(
     // for (auto& [k,v] : cache)
     //     fprintf(stderr, "  index key: '%s'\n", k.c_str());
 
-
+    const fs::path layers_path = getExecutableDir() / "layers";
     //cache hit
     if(!cache_broken && (cache.find(cache_key)!=cache.end()) ){
         std::string digest = stripSHA256(cache[cache_key]);
@@ -405,6 +405,9 @@ void CopyInstruction::Execute(
             std::cout << "CACHE HIT " << instruction_text << "\n";
             Layer l;
             l.digest = digest;
+            std::uintmax_t file_size = std::filesystem::file_size(layers_path / (digest +".tar"));
+            l.size = file_size;
+            l.createdBy = "COPY " + from + dest;
             state.addLayer(l);  //check
             return;
         }
@@ -418,7 +421,7 @@ void CopyInstruction::Execute(
     fs::path staging = fs::absolute(temp_dir.get());
     copy_dir_to_tmp(staging, (context_dir / from).string(), dest);
 
-    const fs::path layers_path = getExecutableDir() / "layers";
+    
 
     fs::path tarPath =  layers_path / "layer.tar";
 
@@ -491,6 +494,9 @@ void RunInstruction::Execute(
         // fprintf(stderr, "cache hit candidate: %s exists=%d\n", 
         //     digest.c_str(), layerExists(digest));
 
+
+        const fs::path layer_dir = fs::absolute(getExecutableDir() / "layers");
+
         if (digest == prev_digest) {
             std::cout << "CACHE HIT RUN " << getCmd() << "\n";
            return;  // no-op, don't add any layer
@@ -500,6 +506,11 @@ void RunInstruction::Execute(
             std::cout << "CACHE HIT " << instruction_text << "\n";
             Layer l;
             l.digest = digest;
+
+            std::uintmax_t file_size = fs::file_size(layer_dir / (digest + ".tar"));
+            l.size = file_size;
+            l.createdBy = cmd.empty() ? "" : getCmd();
+
             state.addLayer(l);
             return;
         }
@@ -519,9 +530,9 @@ void RunInstruction::Execute(
         cache[cache_key] = "sha256:" + delta_layer.value().digest;
         saveCache(cache);
     }
-    // else{
-    //     cache[cache_key] = "sha256:" + prev_digest;
-    // }
+    else{
+        cache[cache_key] = "sha256:" + prev_digest;
+    }
 
     std::cout << "cache miss!" << std::endl;
 
