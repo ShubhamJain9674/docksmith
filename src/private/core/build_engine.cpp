@@ -284,7 +284,7 @@ InstructionResult FromInstruction::Execute(
 
     InstructionResult result;
     result.valid = true;
-    result.message = "FROM " + image.getName()+":"+image.getTag();
+    result.message = std::string(BLUE) + "FROM "+ std::string(RESET) + image.getName()+":"+image.getTag();
 
     return result;
 }
@@ -318,12 +318,13 @@ InstructionResult WorkingdirInstruction::Execute(
     if (!cache_broken && cache.find(cache_key) != cache.end()) {
         std::string digest = stripSHA256(cache[cache_key]);
         if (layerExists(digest)) {
-            std::cout << "CACHE HIT WORKDIR " << dir << "\n";
+            // std::cout << "CACHE HIT WORKDIR " << dir << "\n";
             Layer l; l.digest = digest;
             state.addLayer(l);
             state.setWorkdir(dir);
             result.valid = true;
-            result.message = "WORKDIR " + dir + "[CACHE HIT] " + timer->getDurationString();
+            result.message = std::string(BLUE) + "WORKDIR " + std::string(RESET) 
+                            + dir + std::string(GREEN) + "[CACHE HIT] " + timer->getDurationString() + std::string(RESET);
             return result;
         }
     }
@@ -339,7 +340,8 @@ InstructionResult WorkingdirInstruction::Execute(
     state.setWorkdir(dir);
     
     result.valid = true;
-    result.message = "WORKDIR " + dir + "[CACHE MISS] " + timer->getDurationString();
+    result.message = std::string(BLUE) + "WORKDIR " + std::string(RESET) 
+                    + dir + std::string(ORANGE) + "[CACHE MISS] " + timer->getDurationString() + std::string(RESET);
     return result;
 }
 
@@ -358,7 +360,7 @@ InstructionResult EnvInstruction::Execute(
     InstructionResult result;
 
     result.valid = true;
-    result.message = "ENV " + env;
+    result.message = std::string(BLUE) + "ENV " + std::string(RESET) + env;
     return result;
 
 }
@@ -374,7 +376,7 @@ InstructionResult CmdInstruction::Execute(
 
     InstructionResult result;
     result.valid = true;
-    result.message = "CMD " + cmd.dump();
+    result.message = std::string(BLUE) + "CMD " + std::string(RESET) + cmd.dump();
     return result;
 }
 
@@ -440,7 +442,9 @@ InstructionResult CopyInstruction::Execute(
             l.createdBy = "COPY " + from + dest;
             state.addLayer(l);  //check
             result.valid = true;
-            result.message = "COPY " + from + " " + dest + "[CACHE HIT] " + timer->getDurationString(); 
+            result.message = std::string(BLUE) + "COPY " + std::string(RESET) 
+                            + from + " " + dest + std::string(GREEN) +"[CACHE HIT] "  
+                            + timer->getDurationString() + std::string(RESET); 
 
             return result;
         }
@@ -493,7 +497,8 @@ InstructionResult CopyInstruction::Execute(
     // std::cout << "cache miss !" << std::endl;
 
     result.valid = false;
-    result.message = "COPY " + from + " " + dest + "[CACHE MISS] " + timer->getDurationString(); 
+    result.message = std::string(BLUE) + "COPY " + std::string(RESET) + from + " " + dest  
+                    + std::string(ORANGE) +"[CACHE MISS] " + timer->getDurationString() + std::string(RESET); 
     return result;
 
 }
@@ -539,7 +544,8 @@ InstructionResult RunInstruction::Execute(
         if (digest == prev_digest) {
             // std::cout << "CACHE HIT RUN " << getCmd() << "\n";
             result.valid = true;
-            result.message = "RUN " + getCmd() + " [CACHE HIT] " +timer->getDurationString();
+            result.message = std::string(BLUE) + "RUN " + std::string(RESET) +  getCmd() 
+                            + std::string(GREEN) + " [CACHE HIT] " +timer->getDurationString() + std::string(RESET);
 
            return result;  // no-op, don't add any layer
         }
@@ -556,7 +562,9 @@ InstructionResult RunInstruction::Execute(
             state.addLayer(l);
             
             result.valid = true;
-            result.message = "RUN " + getCmd() + " [CACHE HIT] " + timer->getDurationString();
+            result.message = std::string(BLUE) + "RUN " + std::string(RESET) 
+                             + getCmd() + std::string(GREEN) + " [CACHE HIT] "
+                             + timer->getDurationString() + std::string(RESET);
             
 
             return result;
@@ -586,7 +594,8 @@ InstructionResult RunInstruction::Execute(
     // temp dir handled by RAII object temp dir when it gets out of scope;
 
     result.valid = true;
-    result.message = "RUN " + getCmd() + RED +  " [CACHE MISS] " + timer->getDurationString() + RESET;
+    result.message = std::string(BLUE) + "RUN " + std::string(RESET) + getCmd() 
+                    + std::string(ORANGE) +  " [CACHE MISS] " + timer->getDurationString() + std::string(RESET);
     
     return result;
 
@@ -642,12 +651,12 @@ Image BuildEngine::Build(std::vector<json>& Instructions,
     for(size_t i = 0;i < Instructions.size();i++){
         auto instr = instr_fact.Create(Instructions[i]);
         auto result = instr->Execute(bs, cache_index,cache_broken);
-        std::cout << "Step " 
-                  << i 
+        std::cout << BLUE <<"Step " 
+                  << i+1 
                   << "/" 
-                  << Instructions.size() << " "
+                  << Instructions.size() << RESET << " " 
                   << result.message
-                  << "\n";
+                  << "\n\n";
         saveCache(cache_index);
 
     }

@@ -28,6 +28,7 @@ void buildCmd(const std::string& build_tag,const std::string& build_context,bool
     //implement build command :-
 
     //check context path
+    std::unique_ptr timer = std::make_unique<PerfTimer>();
 
     if(!checkPath(build_context)){
         std::cerr << RED <<"invalid build context\n" << RESET;
@@ -76,8 +77,10 @@ void buildCmd(const std::string& build_tag,const std::string& build_context,bool
 
     saveManifest(image);
 
-    std::cout << "Build Complete" << std::endl;
-
+    // std::cout << "Build Complete" << std::endl;
+    std::cout << GREEN << "Successfully built sha256:" << digest.substr(0,9) 
+              << "  "  << build_tag << "("
+              << timer->getDurationString() << ")" << RESET << std::endl;
 
 }
 
