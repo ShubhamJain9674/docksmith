@@ -267,7 +267,7 @@ std::optional<Layer> buildLayer(
     return new_layer;
 }
 
-void FromInstruction::Execute(
+InstructionResult FromInstruction::Execute(
     BuildState& state,
     CacheIndex& cache,
     bool& cache_broken
@@ -282,11 +282,16 @@ void FromInstruction::Execute(
         state.addLayer(layer);
     }
 
+    InstructionResult result;
+    result.valid = true;
+    result.message = "FROM " + image.getName()+":"+image.getTag();
+
+    return result;
 }
 
 
 
-void WorkingdirInstruction::Execute(
+InstructionResult WorkingdirInstruction::Execute(
     BuildState& state,
     CacheIndex& cache,
     bool& cache_broken
@@ -304,6 +309,12 @@ void WorkingdirInstruction::Execute(
     // for (auto& [k,v] : cache)
     //     fprintf(stderr, "  index key: '%s'\n", k.c_str());
 
+    InstructionResult result;
+    result.valid = false;
+    result.message = "WORKDIR Failed"; 
+
+    std::unique_ptr<PerfTimer> timer = std::make_unique<PerfTimer>();
+
     if (!cache_broken && cache.find(cache_key) != cache.end()) {
         std::string digest = stripSHA256(cache[cache_key]);
         if (layerExists(digest)) {
@@ -311,7 +322,9 @@ void WorkingdirInstruction::Execute(
             Layer l; l.digest = digest;
             state.addLayer(l);
             state.setWorkdir(dir);
-            return;
+            result.valid = true;
+            result.message = "WORKDIR " + dir + "[CACHE HIT] " + timer->getDurationString();
+            return result;
         }
     }
 
@@ -324,12 +337,16 @@ void WorkingdirInstruction::Execute(
         cache[cache_key] = "sha256:" + l.value().digest;
     }
     state.setWorkdir(dir);
+    
+    result.valid = true;
+    result.message = "WORKDIR " + dir + "[CACHE MISS] " + timer->getDurationString();
+    return result;
 }
 
 
 
 
-void EnvInstruction::Execute(
+InstructionResult EnvInstruction::Execute(
     BuildState& state,
     CacheIndex& cache,
     bool& cache_broken
@@ -338,9 +355,15 @@ void EnvInstruction::Execute(
     (void)cache;
     (void)cache_broken;
     state.env.push_back(env);
+    InstructionResult result;
+
+    result.valid = true;
+    result.message = "ENV " + env;
+    return result;
+
 }
 
-void CmdInstruction::Execute(
+InstructionResult CmdInstruction::Execute(
     BuildState& state,
     CacheIndex& cache,
     bool& cache_broken
@@ -348,9 +371,14 @@ void CmdInstruction::Execute(
     (void)cache;
     (void)cache_broken;
     state.setCmd(cmd);
+
+    InstructionResult result;
+    result.valid = true;
+    result.message = "CMD " + cmd.dump();
+    return result;
 }
 
-void CopyInstruction::Execute(
+InstructionResult CopyInstruction::Execute(
     BuildState& state,
     CacheIndex& cache,
     bool& cache_broken
@@ -363,6 +391,8 @@ void CopyInstruction::Execute(
     // fprintf(stderr, "exists: %d\n", (int)fs::exists(absSrc));
     // fprintf(stderr, "is_file: %d\n", (int)fs::is_regular_file(absSrc));
     // fprintf(stderr, "is_dir: %d\n", (int)fs::is_directory(absSrc));
+    InstructionResult result;
+    std::unique_ptr<PerfTimer> timer= std::make_unique<PerfTimer>();
 
     std::string prev_digest = state.getLastLayerDigest();
     std::string instruction_text = "COPY " + from + " " + dest;
@@ -402,14 +432,17 @@ void CopyInstruction::Execute(
         //     digest.c_str(), layerExists(digest));
 
         if(layerExists(digest)){
-            std::cout << "CACHE HIT " << instruction_text << "\n";
+            // std::cout << "CACHE HIT " << instruction_text << "\n";
             Layer l;
             l.digest = digest;
             std::uintmax_t file_size = std::filesystem::file_size(layers_path / (digest +".tar"));
             l.size = file_size;
             l.createdBy = "COPY " + from + dest;
             state.addLayer(l);  //check
-            return;
+            result.valid = true;
+            result.message = "COPY " + from + " " + dest + "[CACHE HIT] " + timer->getDurationString(); 
+
+            return result;
         }
     }
 
@@ -457,17 +490,23 @@ void CopyInstruction::Execute(
     cache[cache_key] = "sha256:" + l.digest;
     saveCache(cache);
 
-    std::cout << "cache miss !" << std::endl;
+    // std::cout << "cache miss !" << std::endl;
+
+    result.valid = false;
+    result.message = "COPY " + from + " " + dest + "[CACHE MISS] " + timer->getDurationString(); 
+    return result;
 
 }
 
 
-void RunInstruction::Execute(
+InstructionResult RunInstruction::Execute(
     BuildState& state,
     CacheIndex& cache,
     bool& cache_broken
 ){
-    
+    InstructionResult result;
+    std::unique_ptr<PerfTimer> timer = std::make_unique<PerfTimer>();
+
     std::string prev_digest = state.getLastLayerDigest();
     std::string instruction_text = getCmd();
     // std::cout << "get cmd() function check : " << getCmd() << "\n";
@@ -498,12 +537,15 @@ void RunInstruction::Execute(
         const fs::path layer_dir = fs::absolute(getExecutableDir() / "layers");
 
         if (digest == prev_digest) {
-            std::cout << "CACHE HIT RUN " << getCmd() << "\n";
-           return;  // no-op, don't add any layer
+            // std::cout << "CACHE HIT RUN " << getCmd() << "\n";
+            result.valid = true;
+            result.message = "RUN " + getCmd() + " [CACHE HIT] " +timer->getDurationString();
+
+           return result;  // no-op, don't add any layer
         }
 
         if(layerExists(digest)){
-            std::cout << "CACHE HIT " << instruction_text << "\n";
+            // std::cout << "CACHE HIT " << instruction_text << "\n";
             Layer l;
             l.digest = digest;
 
@@ -512,7 +554,12 @@ void RunInstruction::Execute(
             l.createdBy = cmd.empty() ? "" : getCmd();
 
             state.addLayer(l);
-            return;
+            
+            result.valid = true;
+            result.message = "RUN " + getCmd() + " [CACHE HIT] " + timer->getDurationString();
+            
+
+            return result;
         }
     }
 
@@ -534,10 +581,14 @@ void RunInstruction::Execute(
         cache[cache_key] = "sha256:" + prev_digest;
     }
 
-    std::cout << "cache miss!" << std::endl;
+    // std::cout << "cache miss!" << std::endl;
 
     // temp dir handled by RAII object temp dir when it gets out of scope;
 
+    result.valid = true;
+    result.message = "RUN " + getCmd() + RED +  " [CACHE MISS] " + timer->getDurationString() + RESET;
+    
+    return result;
 
 }
 
@@ -588,11 +639,26 @@ Image BuildEngine::Build(std::vector<json>& Instructions,
     Image img;
 
     // execute all instructions
-    for (auto& i : Instructions){
-        auto instr = instr_fact.Create(i);
-        instr->Execute(bs, cache_index,cache_broken);
+    for(size_t i = 0;i < Instructions.size();i++){
+        auto instr = instr_fact.Create(Instructions[i]);
+        auto result = instr->Execute(bs, cache_index,cache_broken);
+        std::cout << "Step " 
+                  << i 
+                  << "/" 
+                  << Instructions.size() << " "
+                  << result.message
+                  << "\n";
         saveCache(cache_index);
+
     }
+
+
+    // for (auto& i : Instructions){
+    //     auto instr = instr_fact.Create(i);
+    //     auto result = instr->Execute(bs, cache_index,cache_broken);
+
+    //     saveCache(cache_index);
+    // }
 
     //create image
     img.setName(name);

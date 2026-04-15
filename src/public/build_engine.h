@@ -10,6 +10,14 @@
 #include "crypto.h"
 #include "runtime.h"
 #include "cache.h"
+#include "timer.h"
+#include "logger.h"
+
+
+struct InstructionResult{
+    std::string message;
+    bool valid;
+};
 
 class BuildState{
 
@@ -50,7 +58,7 @@ class Instruction{
 
     public:
         virtual ~Instruction() = default;
-        virtual void Execute(
+        virtual InstructionResult Execute(
             BuildState& state,
             CacheIndex& cache,
             bool& cache_broken
@@ -63,9 +71,13 @@ class FromInstruction : public Instruction{
 
     public:
         FromInstruction(std::string image_name){
+            size_t pos = image_name.find(":");
+            if(pos != std::string::npos){
+                image_name = image_name.substr(0,pos);
+            }
             image = loadManifest(image_name);
         }
-        void Execute(
+        InstructionResult Execute(
             BuildState& state,
             CacheIndex& cache,
             bool& cache_broken
@@ -83,7 +95,7 @@ class WorkingdirInstruction : public Instruction{
     public:
         WorkingdirInstruction(std::string dir) : dir(dir){};
 
-        void Execute(
+        InstructionResult Execute(
             BuildState& state,
             CacheIndex& cache,
             bool& cache_broken
@@ -100,7 +112,7 @@ class EnvInstruction : public Instruction{
     public:
         EnvInstruction(std::string env) : env(env){}
 
-        void Execute(
+        InstructionResult Execute(
             BuildState& state,
             CacheIndex& cache,
             bool& cache_broken
@@ -115,7 +127,7 @@ class CmdInstruction : public Instruction {
 
     public:
         CmdInstruction(nlohmann::json cmd) : cmd(cmd){};
-        void Execute(
+        InstructionResult Execute(
             BuildState& state,
             CacheIndex& cache,
             bool& cache_broken
@@ -131,7 +143,7 @@ class CopyInstruction : public Instruction {
         CopyInstruction(std::string from,std::string dest,std::filesystem::path context_dir) 
             : from(from),dest(dest),context_dir(context_dir){}
         
-        void Execute(
+        InstructionResult Execute(
             BuildState& state,
             CacheIndex& cache,
             bool& cache_broken
@@ -150,7 +162,7 @@ class RunInstruction : public Instruction{
     public:
         RunInstruction(std::vector<std::string> cmd): cmd(cmd) {}
 
-        void Execute(
+        InstructionResult Execute(
             BuildState& state,
             CacheIndex& cache,
             bool& cache_broken

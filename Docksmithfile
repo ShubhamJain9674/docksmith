@@ -1,0 +1,9 @@
+
+FROM AlpineLinux
+
+
+# Create a file (this should produce a new layer)
+RUN echo "hello from layer 1" > /hello.txt
+
+# Modify it (another layer)
+RUN echo "second layer" >> /hello.txt
