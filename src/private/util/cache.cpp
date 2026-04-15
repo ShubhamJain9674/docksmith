@@ -46,11 +46,10 @@ void saveCache(const CacheIndex& index) {
 std::string normalize(const std::string& s) {
     std::stringstream ss(s);
     std::string word, result;
-
     while (ss >> word) {
-        result += word + " ";
+        if (!result.empty()) result += " ";  // add space between words
+        result += word;
     }
-
     return result;
 }
 

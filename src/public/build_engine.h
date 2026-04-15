@@ -128,8 +128,8 @@ class CmdInstruction : public Instruction {
 class CopyInstruction : public Instruction {
 
     public:
-        CopyInstruction(std::string from,std::string dest) 
-            : from(from),dest(dest){}
+        CopyInstruction(std::string from,std::string dest,std::filesystem::path context_dir) 
+            : from(from),dest(dest),context_dir(context_dir){}
         
         void Execute(
             BuildState& state,
@@ -141,6 +141,7 @@ class CopyInstruction : public Instruction {
     private:
         std::string from;
         std::string dest;
+        std::filesystem::path context_dir;
 
 };
 
@@ -158,6 +159,8 @@ class RunInstruction : public Instruction{
         std::string getCmd(){
             std::string l_cmd = "";
             for(auto str : cmd){
+                if (!l_cmd.empty()) 
+                    l_cmd += " "; 
                 l_cmd += str;
             }
             return l_cmd;
@@ -172,17 +175,23 @@ class RunInstruction : public Instruction{
 class InstructionFactory{
 
     public:
-        static std::unique_ptr<Instruction> Create(nlohmann::json& instr);
+        InstructionFactory(std::filesystem::path context_dir): context_dir(context_dir){}
+        std::unique_ptr<Instruction> Create(nlohmann::json& instr);
 
+    private:
+        std::filesystem::path context_dir;
 };
 
 class BuildEngine{
 
     public:
+        BuildEngine(std::filesystem::path contextDir): context_dir(contextDir){}
         Image Build(std::vector<nlohmann::json>& Instructions,
         const std::string& name,
         const std::string& tag,
         bool no_cache
         );
+    private:
+        std::filesystem::path context_dir;
 
 };

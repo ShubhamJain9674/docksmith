@@ -18,22 +18,24 @@ static std::string formatColumn(const std::string& text, size_t width) {
 }
 
 void buildCmd(const std::string& build_tag,const std::string& build_context,bool no_cache){
-    std::cout << "[BUILD]\n";
-    std::cout << "Tag: " << build_tag << "\n";
-    std::cout << "Context: " << build_context << "\n";
-    std::cout << "No cache: " << (no_cache ? "true" : "false") << "\n";
+    
+    // debug messages
+    // std::cout << "[BUILD]\n";
+    // std::cout << "Tag: " << build_tag << "\n";
+    // std::cout << "Context: " << build_context << "\n";
+    // std::cout << "No cache: " << (no_cache ? "true" : "false") << "\n";
 
     //implement build command :-
 
     //check context path
 
     if(!checkPath(build_context)){
-        std::cerr << "invalid build context\n";
+        std::cerr << RED <<"invalid build context\n" << RESET;
         return;
     }
 
     if(!checkForDocksmithFile(build_context)){
-        std::cerr << "Docksmithfile not found in context\n";
+        std::cerr << RED << "Docksmithfile not found in context\n" << RESET;
         return;
     }
 
@@ -42,18 +44,18 @@ void buildCmd(const std::string& build_tag,const std::string& build_context,bool
     
 
     if (!instructions.has_value()) {
-        std::cerr << "No instructions found!" << std::endl;
+        std::cerr << RED <<"No instructions found!" << RESET <<std::endl;
         return;
     }
     if(instructions.value().size() == 0){
-        std::cerr << "No instructions found!" << std::endl;
+        std::cerr << RED <<"No instructions found!" << RESET <<std::endl;
         return;
     }
 
+    fs::path contextDir = fs::absolute(build_context);
 
 
-
-    BuildEngine engine;
+    BuildEngine engine(contextDir);
    
     auto pos = build_tag.find(':');
     std::string image_name = build_tag.substr(0, pos);
@@ -66,6 +68,11 @@ void buildCmd(const std::string& build_tag,const std::string& build_context,bool
         std::cerr << "Build failed: " << e.what() << "\n";
         return;
     }
+
+    auto data = image.toJson().dump();
+    auto digest = sha256String(data);
+    image.setDigest(digest);
+
 
     saveManifest(image);
 

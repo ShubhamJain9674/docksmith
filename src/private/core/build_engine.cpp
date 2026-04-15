@@ -245,7 +245,16 @@ std::optional<Layer> buildLayer(
 
     Layer new_layer;
     new_layer.digest = encryptSHA256(tarfile);
-    new_layer.size = fs::file_size(tarfile);
+    uintmax_t f_size = 0;
+    if (fs::exists(tarfile))
+        f_size = fs::file_size(tarfile);
+    else
+        std::cerr << "Warning: layer tar missing\n";
+
+
+    f_size = fs::file_size(tarfile);
+    new_layer.size = f_size;
+    new_layer.createdBy = cmds.empty() ? "" : cmds[0];
 
     try {
         fs::copy_file(tarfile, layer_dir / (new_layer.digest + ".tar"),
@@ -347,10 +356,18 @@ void CopyInstruction::Execute(
     bool& cache_broken
 ) {
     
+    // fprintf(stderr, "contextDir: '%s'\n", context_dir.c_str());
+    // fprintf(stderr, "from: '%s'\n", from.c_str());
+    // fs::path absSrc = fs::weakly_canonical(context_dir / from);
+    // fprintf(stderr, "absSrc: '%s'\n", absSrc.c_str());
+    // fprintf(stderr, "exists: %d\n", (int)fs::exists(absSrc));
+    // fprintf(stderr, "is_file: %d\n", (int)fs::is_regular_file(absSrc));
+    // fprintf(stderr, "is_dir: %d\n", (int)fs::is_directory(absSrc));
+
     std::string prev_digest = state.getLastLayerDigest();
     std::string instruction_text = "COPY " + from + " " + dest;
-    // std::string source_hash = hashDirectory(from);
-    fs::path absSrc = fs::weakly_canonical(getContextDir() / from);
+
+    fs::path absSrc = fs::weakly_canonical(context_dir / from);
 
     std::string source_hash;
 
@@ -399,7 +416,7 @@ void CopyInstruction::Execute(
 
     TempDir temp_dir;
     fs::path staging = fs::absolute(temp_dir.get());
-    copy_dir_to_tmp(staging, from, dest);
+    copy_dir_to_tmp(staging, (context_dir / from).string(), dest);
 
     const fs::path layers_path = getExecutableDir() / "layers";
 
@@ -474,6 +491,11 @@ void RunInstruction::Execute(
         // fprintf(stderr, "cache hit candidate: %s exists=%d\n", 
         //     digest.c_str(), layerExists(digest));
 
+        if (digest == prev_digest) {
+            std::cout << "CACHE HIT RUN " << getCmd() << "\n";
+           return;  // no-op, don't add any layer
+        }
+
         if(layerExists(digest)){
             std::cout << "CACHE HIT " << instruction_text << "\n";
             Layer l;
@@ -496,9 +518,10 @@ void RunInstruction::Execute(
         state.addLayer(delta_layer.value());
         cache[cache_key] = "sha256:" + delta_layer.value().digest;
         saveCache(cache);
-    }else{
-        cache[cache_key] = "sha256:" + prev_digest;
     }
+    // else{
+    //     cache[cache_key] = "sha256:" + prev_digest;
+    // }
 
     std::cout << "cache miss!" << std::endl;
 
@@ -525,7 +548,7 @@ std::unique_ptr<Instruction> InstructionFactory::Create(json& instr){
         return std::make_unique<CmdInstruction>(instr["args"]);
     }
     else if(cmd == "COPY"){
-        return std::make_unique<CopyInstruction>(instr["args"][0],instr["args"][1]);
+        return std::make_unique<CopyInstruction>(instr["args"][0],instr["args"][1],context_dir);
     }
     else if(cmd == "RUN"){
         return std::make_unique<RunInstruction>(instr["args"]);
@@ -545,7 +568,7 @@ Image BuildEngine::Build(std::vector<json>& Instructions,
     bool no_cache
 ){
 
-    InstructionFactory instr_fact;
+    InstructionFactory instr_fact(context_dir);
     BuildState bs;
     
     CacheIndex cache_index = (no_cache)? CacheIndex{} :loadCache();
