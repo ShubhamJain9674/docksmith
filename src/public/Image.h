@@ -51,7 +51,7 @@ struct Config{
 
     static Config from_json(const nlohmann::json& j){
         Config c;
-        c.env = j.value("env",std::vector<std::string>{});
+        c.env = j.value("Env",std::vector<std::string>{});
         c.cmds = j.value("Cmd",std::vector<std::string>{});
         if (j.contains("WorkingDir")) {
             c.working_dir = j["WorkingDir"].get<std::string>();

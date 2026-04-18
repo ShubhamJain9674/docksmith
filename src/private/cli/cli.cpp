@@ -155,9 +155,19 @@ void runCmd(const std::string& run_image,
     for (auto& p : fs::directory_iterator(tmp))
         fprintf(stderr, "  %s\n", p.path().c_str());
 
-    fprintf(stderr, "=== ROOTFS /app ===\n");
-    for (auto& p : fs::recursive_directory_iterator(tmp / "app"))
-        fprintf(stderr, "  %s\n", p.path().c_str());
+    // fprintf(stderr, "=== ROOTFS /app ===\n");
+    // for (auto& p : fs::recursive_directory_iterator(tmp / "app"))
+    //     fprintf(stderr, "  %s\n", p.path().c_str());
+
+    fs::path app_path = tmp / "app";
+    if (fs::exists(app_path)) {
+        fprintf(stderr, "=== ROOTFS /app ===\n");
+        for (auto& p : fs::recursive_directory_iterator(app_path))
+            fprintf(stderr, "  %s\n", p.path().c_str());
+    } else {
+        fprintf(stderr, "=== ROOTFS /app === (does not exist)\n");
+    }
+
     fprintf(stderr, "=== END ===\n");
 
     fprintf(stderr, "layers count: %zu\n", layers.size());
@@ -167,15 +177,18 @@ void runCmd(const std::string& run_image,
 
     // prepare env :-
     std::vector<std::string> finalEnv;
-
+    
     // image env
     for (auto& e : image.getConfig().env) {
         finalEnv.push_back(e);
+        std::cout << "[DEBUG] image env : " << e << std::endl;
     }
 
     // CLI overrides
     for (auto& e : env_vars) {
         finalEnv.push_back(e);
+        std::cout << "[DEBUG] cli overrides env : " << e << std::endl;
+
     }
 
     // prepare cmd 
