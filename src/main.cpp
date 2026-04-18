@@ -45,7 +45,7 @@ int main(int argc, char* argv[]) {
     auto run = app.add_subcommand("run", "Run a container");
 
     run->add_option("image", run_image, "Image name:tag")->required();
-    run->add_option("cmd", run_cmd, "Override command");
+    run->add_option("--cmd", run_cmd, "Override command");
     run->add_option("-e", env_vars, "Environment variables (KEY=VALUE)");
 
     run->callback([&]() {

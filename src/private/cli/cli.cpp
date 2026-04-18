@@ -203,6 +203,12 @@ void runCmd(const std::string& run_image,
         }
     }
 
+    if(finalCmd.empty()){
+        std::cout << RED << "Error: No cmds were in  Image and no cmd args were passed!"
+                  << RESET << std::endl;
+        return;
+    }
+
     // Working dir :-
 
     auto workdir = image.getConfig().working_dir;
