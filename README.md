@@ -207,17 +207,19 @@ make clean
 
 ---
 
-## 📜 License
-
-This project is licensed under the **MIT License** (or specify your chosen license).
+##  License
+This project is licensed under the MIT License.
 
 ### Third-Party Licenses
 
-This project uses the following third-party library:
+This project uses the following third-party libraries:
 
-* **CLI11**
-  Licensed under the **BSD 3-Clause License**.
+ - CLI11
+  Licensed under the BSD 3-Clause License.
   See: https://github.com/CLIUtils/CLI11/blob/main/LICENSE
+- nlohmann/json
+  Licensed under the MIT License.
+  See: https://github.com/nlohmann/json/blob/develop/LICENSE.MIT
 
 
 
