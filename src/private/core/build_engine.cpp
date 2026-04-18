@@ -220,14 +220,23 @@ std::optional<Layer> buildLayer(
 
 
 
-    // fs::create_directories(workdir);
+    // // fs::create_directories(workdir);
+    // if (!fs::exists(workdir)) {
+    //     // create it on host with a shell command so permissions aren't an issue
+    //     std::string cmd = "mkdir -p " + workdir.string();
+    //     if(system(cmd.c_str()) == -1){
+    //         std::cerr << "WARNING : system cmd failed! : " << cmd.c_str() << std::endl; 
+    //     }
+    // }
+
     if (!fs::exists(workdir)) {
-        // create it on host with a shell command so permissions aren't an issue
-        std::string cmd = "mkdir -p " + workdir.string();
-        if(system(cmd.c_str()) == -1){
-            std::cerr << "WARNING : system cmd failed! : " << cmd.c_str() << std::endl; 
-        }
+        std::error_code ec;
+        fs::create_directories(workdir, ec);
+        if (ec)
+            std::cerr << "WARNING: failed to create workdir: " << ec.message() << "\n";
+        
     }
+
 
     auto beforeSnapshot = snapshotMtimes(tmp);
 
@@ -325,7 +334,7 @@ InstructionResult FromInstruction::Execute(
     return result;
 }
 
-
+/*
 
 InstructionResult WorkingdirInstruction::Execute(
     BuildState& state,
@@ -381,6 +390,27 @@ InstructionResult WorkingdirInstruction::Execute(
     return result;
 }
 
+*/
+
+InstructionResult WorkingdirInstruction::Execute(
+    BuildState& state,
+    CacheIndex& cache,
+    bool& cache_broken
+){
+    (void)cache;
+    (void)cache_broken;
+
+    InstructionResult result;
+    std::unique_ptr<PerfTimer> timer = std::make_unique<PerfTimer>();
+
+    state.setWorkdir(dir);
+
+    result.valid = true;
+    result.message = std::string(BLUE) + "WORKDIR " + std::string(RESET)
+                   + dir + std::string(GREEN) + " [OK] "
+                   + timer->getDurationString() + std::string(RESET);
+    return result;
+}
 
 
 
@@ -625,6 +655,15 @@ InstructionResult CopyInstruction::Execute(
                            + timer->getDurationString() + std::string(RESET);
             return result;
         }
+    }
+
+    // ensure workdir exists in staging before copy
+    std::string wd = state.getWorkdir();
+    if (!wd.empty()) {
+        std::string wd_rel = wd;
+        if (wd_rel[0] == '/') wd_rel = wd_rel.substr(1);
+        // this is handled by copy_sources_to_staging via create_directories
+        // but also ensure it exists in the reconstructed rootfs temp dir
     }
 
     // cache miss
