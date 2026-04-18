@@ -88,18 +88,18 @@ void runCmd(const std::string& run_image,
             const std::vector<std::string>& run_cmd,
             const std::vector<std::string>& env_vars)
 {
-    std::cout << "[RUN]\n";
-    std::cout << "Image: " << run_image << "\n";
+    // std::cout << "[RUN]\n";
+    // std::cout << "Image: " << run_image << "\n";
 
-    std::cout << "Env:\n";
-    for (auto &e : env_vars) {
-        std::cout << "  " << e << "\n";
-    }
+    // std::cout << "Env:\n";
+    // for (auto &e : env_vars) {
+    //     std::cout << "  " << e << "\n";
+    // }
 
-    std::cout << "Cmd:\n";
-    for (auto &c : run_cmd) {
-        std::cout << "  " << c << "\n";
-    }
+    // std::cout << "Cmd:\n";
+    // for (auto &c : run_cmd) {
+    //     std::cout << "  " << c << "\n";
+    // }
 
 
     //implement run command:-
@@ -150,29 +150,29 @@ void runCmd(const std::string& run_image,
 
         handleWhiteouts(tmp);
     }
-    // after extraction, add debug:
-    fprintf(stderr, "=== ROOTFS ROOT ===\n");
-    for (auto& p : fs::directory_iterator(tmp))
-        fprintf(stderr, "  %s\n", p.path().c_str());
+    // after extractio
+    // fprintf(stderr, " ROOTFS ROOT \n");
+    // for (auto& p : fs::directory_iterator(tmp))
+    //     fprintf(stderr, "  %s\n", p.path().c_str());
 
-    // fprintf(stderr, "=== ROOTFS /app ===\n");
+    // fprintf(stderr, " ROOTFS /app \n");
     // for (auto& p : fs::recursive_directory_iterator(tmp / "app"))
     //     fprintf(stderr, "  %s\n", p.path().c_str());
 
     fs::path app_path = tmp / "app";
-    if (fs::exists(app_path)) {
-        fprintf(stderr, "=== ROOTFS /app ===\n");
-        for (auto& p : fs::recursive_directory_iterator(app_path))
-            fprintf(stderr, "  %s\n", p.path().c_str());
-    } else {
-        fprintf(stderr, "=== ROOTFS /app === (does not exist)\n");
-    }
+    // if (fs::exists(app_path)) {
+    //     fprintf(stderr, " ROOTFS /app \n");
+    //     for (auto& p : fs::recursive_directory_iterator(app_path))
+    //         fprintf(stderr, "  %s\n", p.path().c_str());
+    // } else {
+    //     fprintf(stderr, " ROOTFS /app  (does not exist)\n");
+    // }
 
-    fprintf(stderr, "=== END ===\n");
+    // fprintf(stderr, "END\n");
 
-    fprintf(stderr, "layers count: %zu\n", layers.size());
-    for (auto& l : layers)
-        fprintf(stderr, "  layer: %s\n", l.digest.c_str());
+    // fprintf(stderr, "layers count: %zu\n", layers.size());
+    // for (auto& l : layers)
+    //     fprintf(stderr, "  layer: %s\n", l.digest.c_str());
 
 
     // prepare env :-
@@ -181,13 +181,13 @@ void runCmd(const std::string& run_image,
     // image env
     for (auto& e : image.getConfig().env) {
         finalEnv.push_back(e);
-        std::cout << "[DEBUG] image env : " << e << std::endl;
+        // std::cout << "[DEBUG] image env : " << e << std::endl;
     }
 
     // CLI overrides
     for (auto& e : env_vars) {
         finalEnv.push_back(e);
-        std::cout << "[DEBUG] cli overrides env : " << e << std::endl;
+        // std::cout << "[DEBUG] cli overrides env : " << e << std::endl;
 
     }
 
@@ -222,7 +222,7 @@ void runCmd(const std::string& run_image,
     }
 
     //end
-    std::cout << "RUN COMPLETE" << std::endl;
+    std::cout << GREEN << "RUN COMPLETE" << RESET <<  std::endl;
     // temp file cleanup handled by RAII obbkect
 
 }
@@ -307,10 +307,26 @@ void rmiCmd(const std::string& rmi_image){
     // collect digests being removed (for cache cleanup)
     std::unordered_set<std::string> removed_digests;
 
+    // this code used to not remove shared layer but 
+    // was commented as it was a requirement in our project to remove shared layers also:-
+
     // delete unused layers
+    // for (auto& layer : target_layers) {
+    //     if (used_layers.count(layer.digest)) {
+    //         std::cout << "Keeping shared layer: " << layer.digest << "\n";
+    //     } else {
+    //         fs::path layer_path = getLayerDir() / (layer.digest + ".tar");
+    //         if (fs::exists(layer_path)) {
+    //             fs::remove(layer_path);
+    //             std::cout << "Removed layer: " << layer.digest << "\n";
+    //         }
+    //         removed_digests.insert(layer.digest);
+    //     }
+    // }
+
     for (auto& layer : target_layers) {
         if (used_layers.count(layer.digest)) {
-            std::cout << "Keeping shared layer: " << layer.digest << "\n";
+            std::cout << ORANGE <<"WARNING Removing shared layer: " << layer.digest << RESET <<  "\n";
         } else {
             fs::path layer_path = getLayerDir() / (layer.digest + ".tar");
             if (fs::exists(layer_path)) {
@@ -320,6 +336,9 @@ void rmiCmd(const std::string& rmi_image){
             removed_digests.insert(layer.digest);
         }
     }
+
+
+
 
     // clean up cache entries that reference removed layers
     CacheIndex cache = loadCache();
