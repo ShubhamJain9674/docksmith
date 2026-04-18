@@ -6,7 +6,7 @@ namespace fs = std::filesystem;
 bool startsWith(const std::string& str, const std::string& prefix) {
     return str.size() >= prefix.size() && str.compare(0, prefix.size(), prefix) == 0;
 }
-
+/*
 static void copy_dir_to_tmp(const std::string& tmp_path,std::string from,std::string dest){
 
     fs::path staging = fs::weakly_canonical(tmp_path);
@@ -62,6 +62,42 @@ static void copy_dir_to_tmp(const std::string& tmp_path,std::string from,std::st
         fs::create_directories(absDest.parent_path());
         fs::copy_file(absSrc, absDest,
             fs::copy_options::overwrite_existing);
+    }
+}
+
+*/
+
+void copy_sources_to_staging(
+    const fs::path& staging,
+    const std::vector<fs::path>& sources,
+    // const fs::path& contextDir,
+    const std::string& dest
+) {
+    fs::path stagingDest = staging / dest.substr(1); // strip leading /
+
+    // auto-create destination directory
+    fs::create_directories(stagingDest);
+
+    for (auto& src : sources) {
+        if (fs::is_directory(src)) {
+            // copy directory contents recursively
+            for (auto& entry : fs::recursive_directory_iterator(src)) {
+                fs::path rel = fs::relative(entry.path(), src);
+                fs::path target = stagingDest / rel;
+                fs::create_directories(target.parent_path());
+                if (entry.is_regular_file())
+                    fs::copy_file(entry.path(), target, 
+                                  fs::copy_options::overwrite_existing);
+                else if (entry.is_symlink())
+                    fs::copy(entry.path(), target,
+                             fs::copy_options::copy_symlinks |
+                             fs::copy_options::overwrite_existing);
+            }
+        } else {
+            // single file — copy into dest dir
+            fs::copy_file(src, stagingDest / src.filename(),
+                          fs::copy_options::overwrite_existing);
+        }
     }
 }
 
@@ -380,6 +416,7 @@ InstructionResult CmdInstruction::Execute(
     return result;
 }
 
+/*
 InstructionResult CopyInstruction::Execute(
     BuildState& state,
     CacheIndex& cache,
@@ -402,6 +439,26 @@ InstructionResult CopyInstruction::Execute(
     fs::path absSrc = fs::weakly_canonical(context_dir / from);
 
     std::string source_hash;
+    auto sources = resolveGlobRecursive(context_dir,from);
+
+    if (sources.empty())
+        throw std::runtime_error("COPY: no files matched: "+ from);
+
+    if(sources.size() == 1 && fs::is_regular_file(sources[0])){
+        source_hash = stripSHA256(encryptSHA256(sources[0]));
+    }
+    else{
+        // hash all sources together
+        std::stringstream ss;
+        std::sort(sources.begin(), sources.end());
+        for (auto& s : sources) {
+            ss << fs::relative(s, context_dir).string() << "\n";
+            ss << fs::file_size(s) << "\n";
+            std::ifstream f(s, std::ios::binary);
+            ss << f.rdbuf();
+        }
+        source_hash = "sha256:" + sha256String(ss.str());
+    }
 
     if (fs::is_directory(absSrc)) {
         source_hash = hashDirectory(absSrc);
@@ -453,9 +510,16 @@ InstructionResult CopyInstruction::Execute(
     //cache miss
     cache_broken = true;
 
+    sources = resolveGlobRecursive(context_dir,from);
+
+    if(sources.empty()){
+        throw std::runtime_error("COPY: no files matched pattern: " + from);
+    }
+
 
     TempDir temp_dir;
     fs::path staging = fs::absolute(temp_dir.get());
+    copy_sources_to_staging(staging,sources,context_dir,dest);
     copy_dir_to_tmp(staging, (context_dir / from).string(), dest);
 
     
@@ -502,7 +566,111 @@ InstructionResult CopyInstruction::Execute(
     return result;
 
 }
+*/
 
+InstructionResult CopyInstruction::Execute(
+    BuildState& state,
+    CacheIndex& cache,
+    bool& cache_broken
+) {
+    InstructionResult result;
+    std::unique_ptr<PerfTimer> timer = std::make_unique<PerfTimer>();
+
+    std::string prev_digest = state.getLastLayerDigest();
+    std::string instruction_text = "COPY " + from + " " + dest;
+
+    // resolve globs once
+    auto sources = resolveGlobRecursive(context_dir, from);
+    if (sources.empty())
+        throw std::runtime_error("COPY: no files matched: " + from);
+
+    // compute source hash
+    std::string source_hash;
+    if (sources.size() == 1 && fs::is_regular_file(sources[0])) {
+        source_hash = stripSHA256(encryptSHA256(sources[0]));
+    } else {
+        std::stringstream ss;
+        std::sort(sources.begin(), sources.end());
+        for (auto& s : sources) {
+            ss << fs::relative(s, context_dir).string() << "\n";
+            ss << fs::file_size(s) << "\n";
+            std::ifstream f(s, std::ios::binary);
+            ss << f.rdbuf();
+        }
+        source_hash = "sha256:" + sha256String(ss.str());
+    }
+
+    std::string cache_key = stripSHA256(computeCacheKey(
+        prev_digest,
+        instruction_text,
+        state.getWorkdir(),
+        state.getEnv(),
+        source_hash
+    ));
+
+    const fs::path layers_path = getExecutableDir() / "layers";
+
+    // cache hit
+    if (!cache_broken && cache.find(cache_key) != cache.end()) {
+        std::string digest = stripSHA256(cache[cache_key]);
+        if (layerExists(digest)) {
+            Layer l;
+            l.digest = digest;
+            l.size = fs::file_size(layers_path / (digest + ".tar"));
+            l.createdBy = "COPY " + from + " " + dest;
+            state.addLayer(l);
+            result.valid = true;
+            result.message = std::string(BLUE) + "COPY " + std::string(RESET)
+                           + from + " " + dest + std::string(GREEN) + " [CACHE HIT] "
+                           + timer->getDurationString() + std::string(RESET);
+            return result;
+        }
+    }
+
+    // cache miss
+    cache_broken = true;
+
+    TempDir temp_dir;
+    fs::path staging = fs::absolute(temp_dir.get());
+    copy_sources_to_staging(staging, sources, dest);  // ← only this, removed copy_dir_to_tmp
+
+    fs::path tarPath = layers_path / "layer.tar";
+    std::string cmd =
+        "tar "
+        "--sort=name "
+        "--mtime='UTC 1970-01-01' "
+        "--owner=0 --group=0 --numeric-owner "
+        "--format=ustar "
+        "-cf \"" + tarPath.string() + "\" "
+        "-C \"" + staging.string() + "\" .";
+
+    if (std::system(cmd.c_str()) != 0)
+        throw std::runtime_error("Failed to create tar");
+
+    std::string digest = encryptSHA256(tarPath);
+    std::uintmax_t file_size = 0;
+
+    try {
+        fs::rename(tarPath, layers_path / (digest + ".tar"));
+        file_size = fs::file_size(layers_path / (digest + ".tar"));
+    } catch (const fs::filesystem_error& e) {
+        std::cerr << "Layer move failed: " << e.what() << "\n";
+    }
+
+    Layer l;
+    l.digest = digest;
+    l.size = file_size;
+    l.createdBy = "COPY " + from + " " + dest;
+    state.addLayer(l);
+    cache[cache_key] = "sha256:" + l.digest;
+    saveCache(cache);
+
+    result.valid = false;
+    result.message = std::string(BLUE) + "COPY " + std::string(RESET)
+                   + from + " " + dest + std::string(ORANGE) + " [CACHE MISS] "
+                   + timer->getDurationString() + std::string(RESET);
+    return result;
+}
 
 InstructionResult RunInstruction::Execute(
     BuildState& state,

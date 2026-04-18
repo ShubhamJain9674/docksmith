@@ -7,6 +7,7 @@
 #include <fstream>
 #include "crypto.h"
 #include <unordered_map>
+#include <glob.h>
 
 
 
@@ -125,3 +126,7 @@ void createTarFromDelta(
     const std::string& tarPath,
     const std::vector<std::string>& files
 );
+
+std::vector<std::filesystem::path> resolveGlob(const std::filesystem::path& contextDir, const std::string& pattern); 
+
+std::vector<std::filesystem::path> resolveGlobRecursive(const std::filesystem::path& contextDir, const std::string& pattern); 

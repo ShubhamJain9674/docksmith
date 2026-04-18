@@ -1,9 +1,17 @@
+FROM alpine:3.19
 
-FROM AlpineLinux
+WORKDIR /app
 
+# 1. Match only top-level .txt files
+COPY *.txt /app/txt/
 
-# Create a file (this should produce a new layer)
-RUN echo "hello from layer 1" > /hello.txt
+# 2. Match only top-level .py files
+COPY *.py /app/py/
 
-# Modify it (another layer)
-RUN echo "second layer" >> /hello.txt
+# 3. Recursive glob (all .txt files anywhere)
+COPY **/*.txt /app/alltxt/
+
+# 4. Nested glob (only inside data folder)
+COPY data/**/*.log /app/logs/
+
+CMD ["sh", "-c", "echo '--- /app ---' && ls -R /app"]

@@ -222,3 +222,74 @@ void createTarFromDelta(
         throw std::runtime_error("tar failed");
     }
 }
+
+
+std::vector<fs::path> resolveGlob(const fs::path& contextDir, const std::string& pattern) {
+    std::vector<fs::path> results;
+    
+    std::string full_pattern = (contextDir / pattern).string();
+    
+    glob_t glob_result;
+    int ret = glob(full_pattern.c_str(), GLOB_TILDE | GLOB_BRACE, nullptr, &glob_result);
+    
+    if (ret == 0) {
+        for (size_t i = 0; i < glob_result.gl_pathc; i++)
+            results.push_back(glob_result.gl_pathv[i]);
+    }
+    
+    globfree(&glob_result);
+    return results;
+}
+
+// std::vector<fs::path> resolveGlobRecursive(const fs::path& contextDir, const std::string& pattern) {
+//     // if pattern contains **, expand manually
+//     if (pattern.find("**") != std::string::npos) {
+//         std::vector<fs::path> results;
+//         std::string suffix = pattern.substr(pattern.find("**") + 3); // after **/
+        
+//         for (auto& entry : fs::recursive_directory_iterator(contextDir)) {
+//             if (!entry.is_regular_file()) continue;
+//             if (suffix.empty() || entry.path().filename() == suffix)
+//                 results.push_back(entry.path());
+//         }
+//         return results;
+//     }
+//     return resolveGlob(contextDir, pattern);
+// }
+
+std::vector<fs::path> resolveGlobRecursive(const fs::path& contextDir, const std::string& pattern) {
+    if (pattern.find("**") != std::string::npos) {
+        std::vector<fs::path> results;
+        
+        // split pattern into before and after **
+        auto pos = pattern.find("**/");
+        std::string prefix = (pos == 0) ? "" : pattern.substr(0, pos);
+        std::string suffix = pattern.substr(pos == std::string::npos ? pos : pos + 3);
+
+        fs::path searchRoot = prefix.empty() ? contextDir : contextDir / prefix;
+
+        if (!fs::exists(searchRoot)) {
+            return results;  // return empty instead of throwing
+        }
+
+        for (auto& entry : fs::recursive_directory_iterator(searchRoot)) {
+            if (!entry.is_regular_file()) continue;
+            
+            // match suffix pattern (e.g. "*.txt")
+            if (!suffix.empty()) {
+                std::string fname = entry.path().filename().string();
+                // simple suffix match — check extension or exact name
+                if (suffix.find('*') != std::string::npos) {
+                    // e.g. "*.txt" — match extension
+                    std::string ext = suffix.substr(suffix.find('*') + 1); // ".txt"
+                    if (entry.path().extension() != ext) continue;
+                } else {
+                    if (fname != suffix) continue;
+                }
+            }
+            results.push_back(entry.path());
+        }
+        return results;
+    }
+    return resolveGlob(contextDir, pattern);
+}
