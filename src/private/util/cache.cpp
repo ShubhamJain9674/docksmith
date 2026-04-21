@@ -86,6 +86,10 @@ std::string hashDirectory(const fs::path& dir) {
 
     for (auto& p : fs::recursive_directory_iterator(dir)) {
         if (fs::is_regular_file(p)) {
+            fs::path rel = fs::relative(p.path(), dir);
+            // exclude Docksmithfile from hash
+            if (rel == "Docksmithfile") 
+                continue;
             // RELATIVE PATH (CRITICAL)
             entries.push_back(fs::relative(p.path(), dir));
         }

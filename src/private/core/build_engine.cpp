@@ -85,9 +85,12 @@ void copy_sources_to_staging(
                 fs::path rel = fs::relative(entry.path(), src);
                 fs::path target = stagingDest / rel;
                 fs::create_directories(target.parent_path());
-                if (entry.is_regular_file())
+                if (entry.is_regular_file()){
+                    if(src.filename() == "Docksmithfile") 
+                        continue; 
                     fs::copy_file(entry.path(), target, 
                                   fs::copy_options::overwrite_existing);
+                }
                 else if (entry.is_symlink())
                     fs::copy(entry.path(), target,
                              fs::copy_options::copy_symlinks |
@@ -407,8 +410,7 @@ InstructionResult WorkingdirInstruction::Execute(
 
     result.valid = true;
     result.message = std::string(BLUE) + "WORKDIR " + std::string(RESET)
-                   + dir + std::string(GREEN) + " [OK] "
-                   + timer->getDurationString() + std::string(RESET);
+                   + dir;
     return result;
 }
 
@@ -616,16 +618,23 @@ InstructionResult CopyInstruction::Execute(
 
     // compute source hash
     std::string source_hash;
-    if (sources.size() == 1 && fs::is_regular_file(sources[0])) {
+    if (sources.size() == 1 && fs::is_directory(sources[0])) {
+        source_hash = hashDirectory(sources[0]);
+    } else if (sources.size() == 1 && fs::is_regular_file(sources[0])) {
         source_hash = stripSHA256(encryptSHA256(sources[0]));
     } else {
+        // multiple sources — hash them all together
         std::stringstream ss;
         std::sort(sources.begin(), sources.end());
         for (auto& s : sources) {
-            ss << fs::relative(s, context_dir).string() << "\n";
-            ss << fs::file_size(s) << "\n";
-            std::ifstream f(s, std::ios::binary);
-            ss << f.rdbuf();
+            if (fs::is_regular_file(s)) {  // skip directories in multi-source
+                if(s.filename() == "Docksmithfile" )
+                    continue;
+                ss << fs::relative(s, context_dir).string() << "\n";
+                ss << fs::file_size(s) << "\n";
+                std::ifstream f(s, std::ios::binary);
+                ss << f.rdbuf();
+            }
         }
         source_hash = "sha256:" + sha256String(ss.str());
     }

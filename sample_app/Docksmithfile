@@ -4,8 +4,8 @@ WORKDIR /app
 
 ENV MESSAGE=HelloWorld
 
-COPY . /app
+COPY .  /app
 
-RUN echo "Building app..." > build.txt
+RUN echo "hello world " > build.txt
 
 CMD ["sh", "-c", "echo $MESSAGE && cat build.txt"]

@@ -1,0 +1,11 @@
+FROM test
+
+WORKDIR /newdir
+
+ENV MESSAGE=Hello2
+
+COPY . /app
+
+RUN echo "built" > build.txt
+
+CMD ["sh", "-c", "echo $MESSAGE && cat build.txt"]
