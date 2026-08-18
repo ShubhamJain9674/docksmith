@@ -6,6 +6,6 @@ ENV MESSAGE=HelloWorld
 
 COPY .  /app
 
-RUN echo "hello world " > build.txt
+RUN echo "hello" > build.txt
 
 CMD ["sh", "-c", "echo $MESSAGE && cat build.txt"]

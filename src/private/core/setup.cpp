@@ -6,22 +6,6 @@ namespace fs = std::filesystem;
 
 
 
-// static bool checkLayersCache(){
-//     const fs::path cache = getExecutableDir() / "cache" / "layers.json";
-//     return fs::exists(cache);
-// }
-
-// static void createLayersCache(){
-//     const fs::path cache = getExecutableDir() / "cache" / "layers.json";
-//     std::ofstream f(cache);
-
-//     if(!f.is_open()){
-//         std::cerr << "failed to create image cache file\n";
-//     }
-
-//     f.close();
-// }
-
 
 void initDocksmithDir(){
 

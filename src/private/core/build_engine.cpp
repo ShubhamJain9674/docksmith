@@ -6,66 +6,6 @@ namespace fs = std::filesystem;
 bool startsWith(const std::string& str, const std::string& prefix) {
     return str.size() >= prefix.size() && str.compare(0, prefix.size(), prefix) == 0;
 }
-/*
-static void copy_dir_to_tmp(const std::string& tmp_path,std::string from,std::string dest){
-
-    fs::path staging = fs::weakly_canonical(tmp_path);
-
-    fs::path absSrc = fs::weakly_canonical(getContextDir() / from);
-    fs::path contextRoot = fs::weakly_canonical(getContextDir());
-
-    if (!fs::exists(absSrc)) {
-        throw std::runtime_error("Source path does not exist");
-    }
-
-    fs::path rel = fs::relative(absSrc, contextRoot);
-    if (rel.empty() || startsWith(rel.string(),"..")) {
-        throw std::runtime_error("COPY outside build context not allowed");
-    }
-
-    fs::path relDest = fs::path(dest).lexically_normal();
-
-
-    fs::path absDest;
-
-    if (relDest.is_absolute()) {
-        // absolute → relative to container root
-        absDest = staging / relDest.relative_path();
-    } else {
-        // relative → relative to staging root (or WORKDIR later)
-        absDest = staging / relDest;
-    }
-
-    
-    // fs::path absDest = fs::weakly_canonical(staging / relDest);
-    // fs::path absDest = (staging / relDest).lexically_normal();
-
-    std::string stagingStr = staging.string();
-    if (absDest.string().find(stagingStr) != 0) {
-        throw std::runtime_error("Destination escapes staging directory");
-    }
-
-    if (fs::is_directory(absSrc)) {
-        fs::create_directories(absDest);
-        for (auto& entry : fs::recursive_directory_iterator(absSrc)) {
-            fs::path entryRel = fs::relative(entry.path(), absSrc);
-            fs::path target = absDest / entryRel;
-            if (entry.is_directory()) {
-                fs::create_directories(target);
-            } else {
-                fs::create_directories(target.parent_path());
-                fs::copy_file(entry.path(), target,
-                    fs::copy_options::overwrite_existing);
-            }
-        }
-    } else {
-        fs::create_directories(absDest.parent_path());
-        fs::copy_file(absSrc, absDest,
-            fs::copy_options::overwrite_existing);
-    }
-}
-
-*/
 
 void copy_sources_to_staging(
     const fs::path& staging,
@@ -247,19 +187,9 @@ std::optional<Layer> buildLayer(
     if (!success)
         throw std::runtime_error("Build failed");
 
-    // fprintf(stderr, "=== HOST VIEW OF /app AFTER RUN ===\n");
-    // for (auto& p : fs::directory_iterator(tmp / "app")) {
-    //     fprintf(stderr, "  %s exists=%d\n", 
-    //         p.path().c_str(),
-    //         fs::exists(p.path()));
-    // }
 
     auto afterSnapshot = snapshotMtimes(tmp);
     auto delta = getDeltaFiles(beforeSnapshot, afterSnapshot);
-    // fprintf(stderr, "=== DELTA ===\n");
-    // for (auto& p : delta)
-        // fprintf(stderr, "  %s\n", p.c_str());
-    // fprintf(stderr, "=== END DELTA ===\n");
 
     auto deleted = getDeletedFiles(beforeSnapshot, afterSnapshot);
 
@@ -337,63 +267,6 @@ InstructionResult FromInstruction::Execute(
     return result;
 }
 
-/*
-
-InstructionResult WorkingdirInstruction::Execute(
-    BuildState& state,
-    CacheIndex& cache,
-    bool& cache_broken
-){
-    std::string prev_digest = state.getLastLayerDigest();
-    std::string cache_key = stripSHA256(computeCacheKey(
-        prev_digest,
-        "WORKDIR " + dir,
-        state.getWorkdir(),
-        state.getEnv(),
-        ""
-    ));
-    // fprintf(stderr, "looking up key: '%s'\n", cache_key.c_str());
-    // fprintf(stderr, "cache size: %zu\n", cache.size());
-    // for (auto& [k,v] : cache)
-    //     fprintf(stderr, "  index key: '%s'\n", k.c_str());
-
-    InstructionResult result;
-    result.valid = false;
-    result.message = "WORKDIR Failed"; 
-
-    std::unique_ptr<PerfTimer> timer = std::make_unique<PerfTimer>();
-
-    if (!cache_broken && cache.find(cache_key) != cache.end()) {
-        std::string digest = stripSHA256(cache[cache_key]);
-        if (layerExists(digest)) {
-            // std::cout << "CACHE HIT WORKDIR " << dir << "\n";
-            Layer l; l.digest = digest;
-            state.addLayer(l);
-            state.setWorkdir(dir);
-            result.valid = true;
-            result.message = std::string(BLUE) + "WORKDIR " + std::string(RESET) 
-                            + dir + std::string(GREEN) + "[CACHE HIT] " + timer->getDurationString() + std::string(RESET);
-            return result;
-        }
-    }
-
-    cache_broken = true;
-    std::vector<std::string> mkdirCmd = { "mkdir -p " + dir };
-    auto l = buildLayer(state, mkdirCmd);
-
-    if (l.has_value()) {
-        state.addLayer(l.value());
-        cache[cache_key] = "sha256:" + l.value().digest;
-    }
-    state.setWorkdir(dir);
-    
-    result.valid = true;
-    result.message = std::string(BLUE) + "WORKDIR " + std::string(RESET) 
-                    + dir + std::string(ORANGE) + "[CACHE MISS] " + timer->getDurationString() + std::string(RESET);
-    return result;
-}
-
-*/
 
 InstructionResult WorkingdirInstruction::Execute(
     BuildState& state,
@@ -448,157 +321,6 @@ InstructionResult CmdInstruction::Execute(
     return result;
 }
 
-/*
-InstructionResult CopyInstruction::Execute(
-    BuildState& state,
-    CacheIndex& cache,
-    bool& cache_broken
-) {
-    
-    // fprintf(stderr, "contextDir: '%s'\n", context_dir.c_str());
-    // fprintf(stderr, "from: '%s'\n", from.c_str());
-    // fs::path absSrc = fs::weakly_canonical(context_dir / from);
-    // fprintf(stderr, "absSrc: '%s'\n", absSrc.c_str());
-    // fprintf(stderr, "exists: %d\n", (int)fs::exists(absSrc));
-    // fprintf(stderr, "is_file: %d\n", (int)fs::is_regular_file(absSrc));
-    // fprintf(stderr, "is_dir: %d\n", (int)fs::is_directory(absSrc));
-    InstructionResult result;
-    std::unique_ptr<PerfTimer> timer= std::make_unique<PerfTimer>();
-
-    std::string prev_digest = state.getLastLayerDigest();
-    std::string instruction_text = "COPY " + from + " " + dest;
-
-    fs::path absSrc = fs::weakly_canonical(context_dir / from);
-
-    std::string source_hash;
-    auto sources = resolveGlobRecursive(context_dir,from);
-
-    if (sources.empty())
-        throw std::runtime_error("COPY: no files matched: "+ from);
-
-    if(sources.size() == 1 && fs::is_regular_file(sources[0])){
-        source_hash = stripSHA256(encryptSHA256(sources[0]));
-    }
-    else{
-        // hash all sources together
-        std::stringstream ss;
-        std::sort(sources.begin(), sources.end());
-        for (auto& s : sources) {
-            ss << fs::relative(s, context_dir).string() << "\n";
-            ss << fs::file_size(s) << "\n";
-            std::ifstream f(s, std::ios::binary);
-            ss << f.rdbuf();
-        }
-        source_hash = "sha256:" + sha256String(ss.str());
-    }
-
-    if (fs::is_directory(absSrc)) {
-        source_hash = hashDirectory(absSrc);
-    } else if (fs::is_regular_file(absSrc)) {
-        source_hash = stripSHA256(encryptSHA256(absSrc));
-    } else {
-        throw std::runtime_error("Invalid COPY source");
-    }
-
-    // fprintf(stderr, "prev_digest: %s\n", prev_digest.c_str());
-    std::string cache_key = stripSHA256(computeCacheKey(
-        prev_digest,
-        instruction_text,
-        state.getWorkdir(),
-        state.getEnv(),
-        source_hash
-    ));
-    // fprintf(stderr, "cache_key: %s\n", cache_key.c_str());
-
-    // fprintf(stderr, "looking up key: '%s'\n", cache_key.c_str());
-    // fprintf(stderr, "cache size: %zu\n", cache.size());
-    // for (auto& [k,v] : cache)
-    //     fprintf(stderr, "  index key: '%s'\n", k.c_str());
-
-    const fs::path layers_path = getExecutableDir() / "layers";
-    //cache hit
-    if(!cache_broken && (cache.find(cache_key)!=cache.end()) ){
-        std::string digest = stripSHA256(cache[cache_key]);
-        // fprintf(stderr, "cache hit candidate: %s exists=%d\n", 
-        //     digest.c_str(), layerExists(digest));
-
-        if(layerExists(digest)){
-            // std::cout << "CACHE HIT " << instruction_text << "\n";
-            Layer l;
-            l.digest = digest;
-            std::uintmax_t file_size = std::filesystem::file_size(layers_path / (digest +".tar"));
-            l.size = file_size;
-            l.createdBy = "COPY " + from + dest;
-            state.addLayer(l);  //check
-            result.valid = true;
-            result.message = std::string(BLUE) + "COPY " + std::string(RESET) 
-                            + from + " " + dest + std::string(GREEN) +"[CACHE HIT] "  
-                            + timer->getDurationString() + std::string(RESET); 
-
-            return result;
-        }
-    }
-
-    //cache miss
-    cache_broken = true;
-
-    sources = resolveGlobRecursive(context_dir,from);
-
-    if(sources.empty()){
-        throw std::runtime_error("COPY: no files matched pattern: " + from);
-    }
-
-
-    TempDir temp_dir;
-    fs::path staging = fs::absolute(temp_dir.get());
-    copy_sources_to_staging(staging,sources,context_dir,dest);
-    copy_dir_to_tmp(staging, (context_dir / from).string(), dest);
-
-    
-
-    fs::path tarPath =  layers_path / "layer.tar";
-
-    std::string cmd =
-        "tar "
-        "--sort=name "
-        "--mtime='UTC 1970-01-01' "
-        "--owner=0 --group=0 --numeric-owner "
-        "--format=ustar "
-        "-cf \"" + tarPath.string() + "\" "
-        "-C \"" + staging.string() + "\" .";
-
-    int ret = std::system(cmd.c_str());
-    if (ret != 0) {
-        throw std::runtime_error("Failed to create tar");
-    }
-
-    std::string digest = encryptSHA256(tarPath);
-    std::uintmax_t file_size = 0;
-
-    try {
-        fs::rename(tarPath,layers_path / (digest + ".tar"));
-        file_size = std::filesystem::file_size(layers_path / (digest +".tar"));
-    } catch (const fs::filesystem_error& e) {
-        std::cerr << "Error  file operation: " << e.what() << std::endl;
-    }
-
-    Layer l;
-    l.digest = digest;
-    l.size = file_size;
-    l.createdBy = "COPY " + from + dest;
-    state.addLayer(l);
-    cache[cache_key] = "sha256:" + l.digest;
-    saveCache(cache);
-
-    // std::cout << "cache miss !" << std::endl;
-
-    result.valid = false;
-    result.message = std::string(BLUE) + "COPY " + std::string(RESET) + from + " " + dest  
-                    + std::string(ORANGE) +"[CACHE MISS] " + timer->getDurationString() + std::string(RESET); 
-    return result;
-
-}
-*/
 
 InstructionResult CopyInstruction::Execute(
     BuildState& state,
@@ -739,13 +461,7 @@ InstructionResult RunInstruction::Execute(
         state.getEnv(),
         ""
     ));
-    // fprintf(stderr, "cache_key: %s\n", cache_key.c_str());
-    
-    // fprintf(stderr, "looking up key: '%s'\n", cache_key.c_str());
-    // fprintf(stderr, "cache size: %zu\n", cache.size());
-    // for (auto& [k,v] : cache)
-    //     fprintf(stderr, "  index key: '%s'\n", k.c_str());
-    
+
     // cache hit condition :-
 
     if(!cache_broken && (cache.find(cache_key)!= cache.end())){
@@ -878,12 +594,6 @@ Image BuildEngine::Build(std::vector<json>& Instructions,
     }
 
 
-    // for (auto& i : Instructions){
-    //     auto instr = instr_fact.Create(i);
-    //     auto result = instr->Execute(bs, cache_index,cache_broken);
-
-    //     saveCache(cache_index);
-    // }
 
     //create image
     img.setName(name);

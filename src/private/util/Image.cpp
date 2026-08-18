@@ -100,7 +100,7 @@ size_t calculateImageSize(Image& i){
 
 std::string getImageSizeFormatted(Image& i){
 
-    float size = calculateImageSize(i);
+    auto size = calculateImageSize(i);
 
     auto round = [](float value){
         return std::round(value * 1000) / 1000.0;
@@ -110,18 +110,18 @@ std::string getImageSizeFormatted(Image& i){
         return s.substr(0,s.find('.') + 3);
     };
 
-    if(size >= 1000000000){
-        size /= 1000000000;
+    if(size >= GIGABYTE){
+        size /= GIGABYTE;
         size = round(size);
         return format(std::to_string(size)) + " GB";
     }
-    else if(size >= 1000000){
-        size /= 1000000;
+    else if(size >= MEGABYTE){
+        size /= MEGABYTE;
         size = round(size);
         return format(std::to_string(size) ) + " MB";
     }
-    else if(size > 1000){
-        size /= 1000;
+    else if(size > KILOBYTE){
+        size /= KILOBYTE;
         size = round(size);
         return format(std::to_string(size) ) + " KB";
     }

@@ -19,11 +19,6 @@ static std::string formatColumn(const std::string& text, size_t width) {
 
 void buildCmd(const std::string& build_tag,const std::string& build_context,bool no_cache){
     
-    // debug messages
-    // std::cout << "[BUILD]\n";
-    // std::cout << "Tag: " << build_tag << "\n";
-    // std::cout << "Context: " << build_context << "\n";
-    // std::cout << "No cache: " << (no_cache ? "true" : "false") << "\n";
 
     //implement build command :-
 
@@ -77,7 +72,6 @@ void buildCmd(const std::string& build_tag,const std::string& build_context,bool
 
     saveManifest(image);
 
-    // std::cout << "Build Complete" << std::endl;
     std::cout << GREEN << "Successfully built sha256:" << digest.substr(0,9) 
               << "  "  << build_tag << "("
               << timer->getDurationString() << ")" << RESET << std::endl;
@@ -88,22 +82,7 @@ void runCmd(const std::string& run_image,
             const std::vector<std::string>& run_cmd,
             const std::vector<std::string>& env_vars)
 {
-    // std::cout << "[RUN]\n";
-    // std::cout << "Image: " << run_image << "\n";
 
-    // std::cout << "Env:\n";
-    // for (auto &e : env_vars) {
-    //     std::cout << "  " << e << "\n";
-    // }
-
-    // std::cout << "Cmd:\n";
-    // for (auto &c : run_cmd) {
-    //     std::cout << "  " << c << "\n";
-    // }
-
-
-    //implement run command:-
-    
     // 1 parse name:tag 
     std::string name , tag;
     auto pos = run_image.find(":");

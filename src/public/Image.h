@@ -12,6 +12,10 @@
 #include "file_handling.h"
 #include "logger.h"
 
+#define GIGABYTE  (1ULL << 30)
+#define MEGABYTE  (1ULL << 20)
+#define KILOBYTE  (1ULL << 10)
+
 std::string stripSHA256(std::string d);
 
 struct Layer{
